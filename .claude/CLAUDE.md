@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Never implement features that I did not ask for.
 - Only move forward in small incremental steps.
 - Ask when making critical decisions.
-- After you are done with a feature and have successfully verified it, add it to `.claude/development.md`.
+- After you have successfully implemented and verified a feature add it to `.claude/development.md`.
 
 ## Project Overview
 

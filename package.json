@@ -8,7 +8,10 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
-    "test": "tsx --test test/*.test.ts"
+    "test": "tsx --test test/*.test.ts",
+    "db:migrate": "node-pg-migrate up",
+    "db:rollback": "node-pg-migrate down",
+    "db:status": "node-pg-migrate status"
   },
   "keywords": [
     "casino",
@@ -18,10 +21,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "fastify": "^5.2.1"
+    "fastify": "^5.2.1",
+    "pg": "^8.13.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
+    "@types/pg": "^8.11.10",
+    "node-pg-migrate": "^7.8.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
   },

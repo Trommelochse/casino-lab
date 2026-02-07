@@ -1,0 +1,10 @@
+{
+  "database-url-var": "DATABASE_URL",
+  "migrations-dir": "migrations",
+  "dir": "migrations",
+  "migration-file-language": "js",
+  "migration-filename-format": "utc",
+  "timestamp": true,
+  "check-order": true,
+  "verbose": true
+}

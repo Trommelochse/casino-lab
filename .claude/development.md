@@ -56,3 +56,72 @@ Initialized a Node.js + Fastify backend project using TypeScript with ESM module
 - Tests use `app.inject()` for fast in-process testing without real HTTP server
 
 ---
+
+## Feature F-002: Database Infrastructure Setup ✅
+**Completed:** 2026-02-07
+**Status:** Verified and working
+
+### Implementation Summary
+Set up PostgreSQL database with Docker and created initial schema using node-pg-migrate. Established the foundational database tables for players and casino state tracking.
+
+### What Was Built
+- **Docker Infrastructure:**
+  - `docker-compose.yml` - PostgreSQL 16 container with persistent volume
+  - Database: `casino_dev` with user `postgres:postgres`
+  - Port mapping: `5432:5432` with healthcheck configuration
+
+- **Migration System:**
+  - `.pgmigraterc.json` - Configuration for node-pg-migrate (JavaScript migrations)
+  - `migrations/1707328800000_init-schema.js` - Initial schema migration
+  - Database tracking table: `pgmigrations` (auto-created)
+
+- **Database Schema:**
+  - **`players` table:**
+    - `id` (UUID, auto-generated primary key)
+    - `archetype` (text) - Player behavioral type (Recreational/VIP/Bonus Hunter)
+    - `status` (text) - Current state (Active/Idle/Broke)
+    - `wallet_balance` (numeric) - Current casino balance
+    - `lifetime_pl` (numeric) - Lifetime profit/loss
+    - `remaining_capital` (numeric) - Available funds for deposits
+    - `dna_traits` (jsonb) - Player DNA configuration (nullable)
+    - `created_at`, `updated_at` (timestamptz)
+    - Indexes: `idx_players_status`, `idx_players_archetype`
+
+  - **`casino_state` table:**
+    - `id` (smallint, primary key) - Singleton row (id=1)
+    - `house_revenue` (numeric) - Total casino profit
+    - `active_player_count` (integer) - Number of active players
+    - `updated_at` (timestamptz)
+    - Pre-seeded with initial row (all zeros)
+
+### Dependencies
+- **Runtime:** `pg@^8.13.1`
+- **Dev:** `node-pg-migrate@^7.8.1`, `@types/pg@^8.11.10`
+
+### NPM Scripts
+- `npm run db:migrate` - Run pending migrations (up)
+- `npm run db:rollback` - Rollback last migration (down)
+
+### Environment Variables
+- `DATABASE_URL` - PostgreSQL connection string (no quotes)
+  - Example: `postgresql://postgres:postgres@localhost:5432/casino_dev`
+
+### Verification Results
+- ✅ PostgreSQL 16 container running and healthy
+- ✅ Database `casino_dev` created
+- ✅ Migration executed successfully
+- ✅ All tables and indexes created correctly
+- ✅ Casino state singleton row inserted (id=1, revenues=0)
+- ✅ Rollback and re-apply tested successfully
+- ✅ New migrations generate as `.js` files with JSDoc types
+
+### Notes
+- **Migration files use JavaScript (not TypeScript):** node-pg-migrate doesn't support TypeScript type imports, so migrations use `.js` with JSDoc comments for type hints
+- **UUID generation:** Uses `pgcrypto` extension for `gen_random_uuid()`
+- **Numeric precision:** Using PostgreSQL `numeric` type for money fields to avoid floating-point precision issues
+- **JSONB for DNA traits:** Flexible storage for player genetic configuration
+- **No rewards tables yet:** Loyalty tiers, free spins, and cashback tracking will be added later
+- **Singleton pattern:** `casino_state` uses id=1 with `ON CONFLICT DO NOTHING` for safe re-runs
+- **Local PostgreSQL conflict:** If you have a local PostgreSQL service running, stop it to avoid port 5432 conflicts with Docker
+
+---

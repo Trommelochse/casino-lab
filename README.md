@@ -6,6 +6,8 @@ Online Casino Simulator - Backend Simulation Engine
 
 - Node.js LTS (>= 20.0.0)
 - npm or yarn
+- Docker & Docker Compose (for local database)
+- PostgreSQL 16+ (if not using Docker)
 
 ## Installation
 
@@ -25,6 +27,72 @@ Default configuration:
 - `PORT=3000` - Server port
 - `HOST=0.0.0.0` - Server host
 - `NODE_ENV=development` - Environment mode
+- `DATABASE_URL=postgres://postgres:postgres@localhost:5432/casino_dev` - PostgreSQL connection string
+
+## Database Setup
+
+### Start PostgreSQL (Docker)
+
+Start the local PostgreSQL database using Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+This will start PostgreSQL 16 on port 5432 with:
+- Database: `casino_dev`
+- User: `postgres`
+- Password: `postgres`
+
+Check database health:
+
+```bash
+docker-compose ps
+```
+
+### Run Migrations
+
+Apply all pending migrations:
+
+```bash
+npm run db:migrate
+```
+
+Check migration status:
+
+```bash
+npm run db:status
+```
+
+Rollback the last migration:
+
+```bash
+npm run db:rollback
+```
+
+### Database Schema
+
+The initial migration creates:
+
+**`players` table:**
+- Stores player state (wallet balance, lifetime P/L, archetype, DNA traits)
+- Indexed by status and archetype for efficient queries
+
+**`casino_state` table:**
+- Single-row global state (house revenue, active player count)
+- Always contains exactly one row with id=1
+
+### Stop Database
+
+```bash
+docker-compose down
+```
+
+To also remove the data volume:
+
+```bash
+docker-compose down -v
+```
 
 ## Development
 
@@ -82,12 +150,16 @@ curl http://localhost:3000/health
 ```
 casino-lab/
 ├── src/
-│   ├── app.ts           # Fastify app factory
-│   └── server.ts        # Server entrypoint
+│   ├── app.ts              # Fastify app factory
+│   └── server.ts           # Server entrypoint
 ├── test/
-│   └── health.test.ts   # Health check tests
-├── dist/                # Compiled output (generated)
-├── .env.example         # Example environment variables
+│   └── health.test.ts      # Health check tests
+├── migrations/             # Database migrations
+│   └── 1707328800000_init-schema.ts
+├── dist/                   # Compiled output (generated)
+├── .env.example            # Example environment variables
+├── .pgmigraterc.json       # Migration tool config
+├── docker-compose.yml      # Local PostgreSQL setup
 ├── .gitignore
 ├── package.json
 ├── tsconfig.json
@@ -96,7 +168,13 @@ casino-lab/
 
 ## Scripts Reference
 
+### Application
 - `npm run dev` - Start development server with hot-reload
 - `npm run build` - Compile TypeScript to JavaScript
 - `npm start` - Run production server
 - `npm test` - Run test suite
+
+### Database
+- `npm run db:migrate` - Run pending migrations
+- `npm run db:rollback` - Rollback last migration
+- `npm run db:status` - Show migration status
