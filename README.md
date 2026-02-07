@@ -27,7 +27,8 @@ Default configuration:
 - `PORT=3000` - Server port
 - `HOST=0.0.0.0` - Server host
 - `NODE_ENV=development` - Environment mode
-- `DATABASE_URL=postgres://postgres:postgres@localhost:5432/casino_dev` - PostgreSQL connection string
+- `DATABASE_URL=postgres://postgres:postgres@localhost:5432/casino_dev` - PostgreSQL connection string (required)
+- `DB_POOL_MAX=10` - Maximum number of database connections in the pool (optional)
 
 ## Database Setup
 
@@ -56,12 +57,6 @@ Apply all pending migrations:
 
 ```bash
 npm run db:migrate
-```
-
-Check migration status:
-
-```bash
-npm run db:status
 ```
 
 Rollback the last migration:
@@ -145,17 +140,40 @@ curl http://localhost:3000/health
 }
 ```
 
+### Casino State
+
+Get the current casino state (loaded from database on boot and cached in memory).
+
+```bash
+curl http://localhost:3000/state
+```
+
+**Response:**
+```json
+{
+  "id": 1,
+  "house_revenue": "0",
+  "active_player_count": 0,
+  "updated_at": "2025-02-07T12:00:00.000Z"
+}
+```
+
 ## Project Structure
 
 ```
 casino-lab/
 ├── src/
+│   ├── db/
+│   │   └── pool.ts         # PostgreSQL connection pool
+│   ├── state/
+│   │   └── casinoState.ts  # Casino state cache
 │   ├── app.ts              # Fastify app factory
 │   └── server.ts           # Server entrypoint
 ├── test/
-│   └── health.test.ts      # Health check tests
+│   ├── health.test.ts      # Health check tests
+│   └── state.test.ts       # Casino state tests
 ├── migrations/             # Database migrations
-│   └── 1707328800000_init-schema.ts
+│   └── 1707328800000_init-schema.js
 ├── dist/                   # Compiled output (generated)
 ├── .env.example            # Example environment variables
 ├── .pgmigraterc.json       # Migration tool config
@@ -177,4 +195,3 @@ casino-lab/
 ### Database
 - `npm run db:migrate` - Run pending migrations
 - `npm run db:rollback` - Rollback last migration
-- `npm run db:status` - Show migration status

@@ -125,3 +125,177 @@ Set up PostgreSQL database with Docker and created initial schema using node-pg-
 - **Local PostgreSQL conflict:** If you have a local PostgreSQL service running, stop it to avoid port 5432 conflicts with Docker
 
 ---
+
+## Feature F-003: Database Connection + Load Casino State on Boot ✅
+**Completed:** 2026-02-07
+**Status:** Verified and working
+
+### Implementation Summary
+Added robust PostgreSQL connection layer with connection pooling and implemented in-memory caching of casino state. Server now loads casino state from database on boot and exposes it via REST API.
+
+### What Was Built
+- **Database Connection Layer:**
+  - `src/db/pool.ts` - Singleton PostgreSQL connection pool
+    - Lazy initialization (created on first use, test-friendly)
+    - Configurable max connections via `DB_POOL_MAX` env var (default: 10)
+    - Connection timeout: 5000ms
+    - Error handling for idle client failures
+    - Graceful shutdown with `closePool()` function
+
+- **Casino State Cache:**
+  - `src/state/casinoState.ts` - In-memory casino state management
+    - `loadCasinoState()` - Loads casino_state row (id=1) from database
+    - `getCasinoState()` - Returns cached state (throws if not loaded)
+    - `refreshCasinoState()` - Reloads state from database
+    - Test helpers: `__setCasinoStateForTests()`, `__clearCasinoStateForTests()`
+    - TypeScript interface: `CasinoState` with typed fields
+
+- **Server Startup Integration:**
+  - Modified `src/server.ts`:
+    - Loads casino state before starting HTTP server (fail-fast on error)
+    - Closes database pool on graceful shutdown (SIGINT/SIGTERM)
+    - Added `dotenv/config` import for environment variable loading
+
+- **API Endpoint:**
+  - Modified `src/app.ts`:
+    - `GET /state` - Returns cached casino state with HTTP 200
+    - Returns HTTP 503 with error message if state not loaded
+    - Catches errors and returns proper JSON error responses
+
+- **Tests:**
+  - `test/state.test.ts` - Comprehensive test suite (3 test cases)
+    - Tests loaded state returns 200 with correct data
+    - Tests unloaded state returns 503 with error message
+    - Tests state with non-zero values
+    - Uses test helpers to avoid requiring real database connection
+  - Updated `test/health.test.ts` - Added dotenv import
+
+- **Documentation:**
+  - Updated `README.md`:
+    - Documented `DB_POOL_MAX` environment variable
+    - Added `GET /state` endpoint documentation with example response
+    - Updated project structure diagram
+    - Removed invalid `db:status` script references
+  - Updated `.env.example` - Added `DB_POOL_MAX=10` (optional)
+  - Removed invalid `db:status` from package.json scripts
+
+### Dependencies
+- **New Runtime:** `dotenv@^17.2.4` - Environment variable loading
+- **Existing:** `pg@^8.13.1` - PostgreSQL client (already installed in F-002)
+
+### Environment Variables
+- `DATABASE_URL` - PostgreSQL connection string (**required**)
+- `DB_POOL_MAX` - Maximum database pool connections (optional, default: 10)
+
+### API Endpoints
+- `GET /state` - Returns current casino state (cached in memory)
+  ```json
+  {
+    "id": 1,
+    "house_revenue": "0",
+    "active_player_count": 0,
+    "updated_at": "2026-02-07T17:46:31.314Z"
+  }
+  ```
+
+### Verification Results
+- ✅ All tests passing (4/4 total: 1 health + 3 state tests)
+- ✅ Server boots successfully and loads casino state from database
+- ✅ `GET /state` returns correct data with HTTP 200
+- ✅ `GET /health` still working (no regressions)
+- ✅ Tests work without real database (using test helpers)
+- ✅ Graceful shutdown properly closes both Fastify and database pool
+- ✅ Fail-fast startup: server won't start if DATABASE_URL missing or casino state can't be loaded
+
+### Notes
+- **No ORM used:** Direct SQL queries via `pg` pool as specified
+- **Lazy pool initialization:** Pool created on first use, not at import time (allows tests to run without DATABASE_URL)
+- **In-memory caching:** Casino state loaded once on boot and cached for fast access
+- **Test isolation:** Test helpers (`__setCasinoStateForTests`) allow unit testing without database connection
+- **Numeric as string:** PostgreSQL `numeric` type returned as string by `pg` driver (prevents precision loss)
+- **Error handling:** Clear error messages for missing DATABASE_URL or unloaded state
+- **Singleton pattern:** Single casino_state row (id=1) loaded and cached per server instance
+- **Future refresh:** `refreshCasinoState()` available for reloading after mutations (not used yet)
+- **dotenv placement:** Imported at top of server.ts and test files to ensure environment variables loaded before any module imports
+
+---
+
+## Feature F-004: Player Base Model (TypeScript) ✅
+**Completed:** 2026-02-07
+**Status:** Verified and working
+
+### Implementation Summary
+Created a type-safe Player domain model with exact field mappings to the database schema. Implemented pure mapper functions to convert between database rows (snake_case) and domain entities (camelCase) with runtime validation.
+
+### What Was Built
+- **Domain Model:**
+  - `src/models/player.ts` - Player entity and database row types
+    - `PlayerStatus` type - Literal union: `"Idle" | "Active" | "Broke"`
+    - `Player` interface - Domain model with camelCase fields (9 properties)
+    - `PlayerRow` interface - Database row shape with snake_case columns
+    - Exact field mapping to F-002 migration schema
+
+- **Type Guard:**
+  - `isPlayerStatus(x: unknown): x is PlayerStatus` - Runtime type validation
+  - Returns true only for valid status values
+  - Used for defensive programming and data validation
+
+- **Mapper Function:**
+  - `mapPlayerRow(row: PlayerRow): Player` - Pure conversion function
+    - Converts snake_case → camelCase (wallet_balance → walletBalance, etc.)
+    - Preserves numeric strings exactly as-is (no parsing or conversion)
+    - Handles both string and Date timestamps, outputs ISO strings
+    - Throws descriptive error on invalid status with bad value included
+    - Zero side effects, fully testable
+
+- **Tests:**
+  - `test/player.model.test.ts` - Comprehensive test suite (9 test cases)
+    - `isPlayerStatus()` validation (valid and invalid inputs)
+    - Complete field mapping verification
+    - Numeric string preservation (maintains precision)
+    - Null dna_traits handling
+    - Date to ISO string conversion
+    - String timestamp preservation
+    - Invalid status error handling
+    - All three valid status values tested
+
+### Player Type Definition
+```typescript
+interface Player {
+  id: string;                    // UUID
+  archetype: string;             // Recreational, VIP, Bonus Hunter
+  status: PlayerStatus;          // "Idle" | "Active" | "Broke"
+  walletBalance: string;         // Numeric as string
+  lifetimePL: string;            // Numeric as string
+  remainingCapital: string;      // Numeric as string
+  dnaTraits: unknown | null;     // JSON-ish, nullable
+  createdAt: string;             // ISO timestamp
+  updatedAt: string;             // ISO timestamp
+}
+```
+
+### Dependencies
+- **None added** - Pure TypeScript implementation
+
+### Verification Results
+- ✅ All tests passing (13/13 total: 1 health + 3 state + 9 player model)
+- ✅ No runtime dependencies added
+- ✅ Type guard correctly validates all status values
+- ✅ Mapper correctly converts all field names
+- ✅ Numeric strings preserved with full precision
+- ✅ Both Date and string timestamps handled correctly
+- ✅ Clear error messages on invalid data
+- ✅ No regressions in existing tests
+
+### Notes
+- **No migrations needed:** Schema already exists from F-002
+- **No repository/service layer yet:** This is purely the domain model layer
+- **String-based numerics:** Following PostgreSQL `pg` driver convention where numeric types return as strings to prevent floating-point precision loss
+- **Type-safe status:** Using literal union instead of enum for better type inference and smaller JS output
+- **Pure functions:** `mapPlayerRow()` has no side effects, making it easy to test and reason about
+- **Runtime validation:** `isPlayerStatus()` provides runtime safety that TypeScript compile-time checks can't guarantee
+- **Timestamp flexibility:** Handles both string (from JSON/query results) and Date objects (from some ORM layers), always outputs consistent ISO strings
+- **Error verbosity:** Invalid status errors include the actual bad value to aid debugging
+- **Ready for reuse:** This model will be used by repositories, services, and API routes in future features
+
+---
