@@ -6,15 +6,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Never implement features that I did not ask for.
 - Only move forward in small incremental steps.
 - Ask when making critical decisions.
+- After you are done with a feature and have successfully verified it, add it to `.claude/development.md`.
 
 ## Project Overview
 
 This is an **Online Casino Simulator** - a client-server application modeling digital casino operations with simulated player behavior, financial volatility, and population dynamics.
 
-**Architecture Pattern:** Headless Server / Remote GUI
-- Backend: Simulation engine (Node.js/Express) - source of truth for all state
-- Frontend: Monitoring/control dashboard (React/Vite) - view-only interface
-- Protocol: REST API
+## Technical Stack
+
+### Backend (Simulation Engine)
+* **Runtime:** Node.js (LTS)
+* **Framework:** Fastify
+* **Database:** PostgreSQL
+* **RNG:** `seedrandom` (Enables deterministic, reproducible simulation results)
+* **Concurrency:** Node.js Worker Threads (Offloads heavy micro-bet loops to prevent API blocking)
+
+### Frontend (Monitoring Dashboard)
+* **Framework:** React with Vite
+* **Data Fetching:** TanStack Query (Configured for polling the `/state` endpoint)
+* **Styling:** Tailwind CSS (For rapid dashboard layout development)
+* **Communication:** REST API (Client is view-only; no local logic)
+
+### Infrastructure & State
+* **State Management:** Immediate server-side mutations (No eventual consistency)
+* **Scaling:** Batch database updates per hour tick to minimize I/O overhead
 
 ## Core Design Principles
 
@@ -146,3 +161,7 @@ All simulation logic constraints are defined in `.claude/knowledge-base/`:
 - `rewards.md` - Loyalty tiers, free spins, cashback logic
 
 When implementing any player behavior, game mechanics, or reward systems, **always reference these files first** to ensure compliance with the specified mathematical models.
+
+## Changelog
+
+- You can find past feature implementations in `.claude/development.md`
