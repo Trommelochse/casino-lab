@@ -29,6 +29,7 @@ Default configuration:
 - `NODE_ENV=development` - Environment mode
 - `DATABASE_URL=postgres://postgres:postgres@localhost:5432/casino_dev` - PostgreSQL connection string (required)
 - `DB_POOL_MAX=10` - Maximum number of database connections in the pool (optional)
+- `RNG_SEED` - Seed for deterministic random number generation (optional, for reproducible simulations)
 
 ## Database Setup
 

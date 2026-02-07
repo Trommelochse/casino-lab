@@ -299,3 +299,120 @@ interface Player {
 - **Ready for reuse:** This model will be used by repositories, services, and API routes in future features
 
 ---
+
+## Feature F-005: Seeded RNG Service (TypeScript) ✅
+**Completed:** 2026-02-07
+**Status:** Verified and working
+
+### Implementation Summary
+Created a server-only random number generation service using `seedrandom` library that supports deterministic, reproducible simulations via seed configuration. Provides a type-safe API with comprehensive validation and multiple utility methods.
+
+### What Was Built
+- **RNG Service Module:**
+  - `src/services/rng.ts` - Seeded random number generator (server-only)
+    - `Rng` type - Interface with 5 utility methods
+    - `createRng(seed?)` - Factory function for creating RNG instances
+    - `getGlobalRng()` - Singleton instance using RNG_SEED from environment
+    - `getConfiguredSeed()` - Returns configured seed or null
+    - Full input validation with descriptive error messages
+
+- **RNG Methods:**
+  - `random()` - Generate float in [0, 1)
+  - `int(min, max)` - Generate integer in [min, max] (inclusive)
+    - Validates min/max are finite integers
+    - Throws if max < min
+    - Uniform distribution
+  - `float(min, max)` - Generate float in [min, max) (exclusive max)
+    - Validates finite numbers
+    - Throws if max <= min
+  - `pick<T>(arr)` - Pick random element from array
+    - Throws on empty array
+    - Generic type support
+  - `shuffle<T>(arr)` - Shuffle array (returns new array)
+    - Fisher-Yates algorithm for uniform distribution
+    - Immutable - does not mutate input
+    - Generic type support
+
+- **Tests:**
+  - `test/rng.test.ts` - Comprehensive test suite (28 test cases)
+    - Determinism tests (5 tests) - Same seed produces identical sequences
+    - Non-determinism tests (2 tests) - No seed produces different sequences
+    - Range validation tests for random(), int(), float()
+    - Edge case tests (empty arrays, single elements, boundary values)
+    - Statistical coverage test for pick()
+    - Immutability test for shuffle()
+    - Error handling tests for all validation cases
+
+- **Configuration:**
+  - Updated `.env.example` - Added RNG_SEED (optional, commented)
+  - Updated `README.md` - Documented RNG_SEED environment variable
+
+### RNG API Example
+```typescript
+import { getGlobalRng, createRng } from './services/rng.js';
+
+// Global RNG (uses RNG_SEED if set)
+const rng = getGlobalRng();
+
+// Or create custom instance
+const customRng = createRng('my-custom-seed');
+
+// Generate random values
+rng.random()              // → 0.7319... (float in [0, 1))
+rng.int(1, 100)          // → 29 (integer in [1, 100])
+rng.float(0.0, 10.5)     // → 7.234... (float in [0, 10.5))
+rng.pick(['a', 'b', 'c']) // → 'b' (random element)
+rng.shuffle([1, 2, 3])   // → [3, 1, 2] (new shuffled array)
+```
+
+### Dependencies
+- **New Runtime:** `seedrandom@^3.0.5` - Seedable PRNG library
+- **New Dev:** `@types/seedrandom@^3.0.8` - TypeScript definitions
+
+### Environment Variables
+- `RNG_SEED` - Seed string for deterministic RNG (optional)
+  - If set: RNG produces identical sequences across process restarts
+  - If not set: RNG uses non-deterministic seeding
+
+### Verification Results
+- ✅ All tests passing (41/41 total: 1 health + 3 state + 9 player + 28 RNG)
+- ✅ Only `seedrandom` added as runtime dependency
+- ✅ Deterministic behavior verified: `RNG_SEED=abc` produces identical sequences across runs
+- ✅ Non-deterministic behavior verified: Without seed, produces different sequences
+- ✅ All validation tests pass with clear error messages
+- ✅ Fisher-Yates shuffle produces uniform distribution
+- ✅ Immutability verified: shuffle() doesn't mutate input array
+- ✅ Statistical tests confirm proper element coverage
+- ✅ No regressions in existing tests
+
+### Deterministic Verification
+**Run 1 with `RNG_SEED=abc`:**
+```
+random(): 0.7319428..., 0.6472995..., 0.7150830...
+int(1,100): 29, 21, 14
+```
+
+**Run 2 with `RNG_SEED=abc`:**
+```
+random(): 0.7319428..., 0.6472995..., 0.7150830...  ✅ IDENTICAL
+int(1,100): 29, 21, 14                              ✅ IDENTICAL
+```
+
+**Without seed:**
+```
+random(): 0.1250827..., 0.7981641..., 0.4050710...  ✅ DIFFERENT
+```
+
+### Notes
+- **Server-only module:** Located in `src/services/` to keep RNG logic on server
+- **Singleton pattern:** `getGlobalRng()` creates instance once based on RNG_SEED environment variable
+- **Seed immutability:** Global RNG seed set once at first call, doesn't re-seed on subsequent calls
+- **Fisher-Yates shuffle:** Implements proper uniform shuffle algorithm, not naive random-swap
+- **Validation-first:** All methods validate inputs before performing operations
+- **Type safety:** Uses TypeScript generics for `pick<T>()` and `shuffle<T>()` to maintain type information
+- **Clear error messages:** Validation errors include context (e.g., "max must be >= min")
+- **No dependencies on other services:** Pure utility module with no external service dependencies
+- **Reproducible simulations:** With RNG_SEED set, entire simulation runs are reproducible for debugging and testing
+- **Future use:** Will be used by slot game logic, player behavior simulation, and reward distributions
+
+---
