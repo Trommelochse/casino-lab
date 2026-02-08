@@ -23,9 +23,9 @@ describe('Slot Registry', () => {
         {
           name: 'test',
           outcomes: [
-            { key: '0.00', p: 0.5 },
-            { key: '1.00', p: 0.3 },
-            { key: '2.00', p: 0.2 },
+            { key: '0.00', p: 0.5, multiplier: 0.0 },
+            { key: '1.00', p: 0.3, multiplier: 1.0 },
+            { key: '2.00', p: 0.2, multiplier: 2.0 },
           ],
         },
       ];
@@ -47,15 +47,15 @@ describe('Slot Registry', () => {
         {
           name: 'low',
           outcomes: [
-            { key: '0.00', p: 0.7 },
-            { key: '1.00', p: 0.3 },
+            { key: '0.00', p: 0.7, multiplier: 0.0 },
+            { key: '1.00', p: 0.3, multiplier: 1.0 },
           ],
         },
         {
           name: 'high',
           outcomes: [
-            { key: '0.00', p: 0.9 },
-            { key: '10.00', p: 0.1 },
+            { key: '0.00', p: 0.9, multiplier: 0.0 },
+            { key: '10.00', p: 0.1, multiplier: 10.0 },
           ],
         },
       ];
@@ -71,7 +71,7 @@ describe('Slot Registry', () => {
       const config: SlotModelsConfig = [
         {
           name: 'guaranteed',
-          outcomes: [{ key: '1.00', p: 1.0 }],
+          outcomes: [{ key: '1.00', p: 1.0, multiplier: 1.0 }],
         },
       ];
 
@@ -102,8 +102,8 @@ describe('Slot Registry', () => {
         {
           name: 'test',
           outcomes: [
-            { key: '1.00', p: 0.5 },
-            { key: '1.00', p: 0.5 }, // Duplicate
+            { key: '1.00', p: 0.5, multiplier: 1.0 },
+            { key: '1.00', p: 0.5, multiplier: 1.0 }, // Duplicate
           ],
         },
       ];
@@ -121,8 +121,8 @@ describe('Slot Registry', () => {
         {
           name: 'test',
           outcomes: [
-            { key: '0.00', p: 0 },
-            { key: '1.00', p: 1.0 },
+            { key: '0.00', p: 0, multiplier: 0.0 },
+            { key: '1.00', p: 1.0, multiplier: 1.0 },
           ],
         },
       ];
@@ -139,7 +139,7 @@ describe('Slot Registry', () => {
       const config: SlotModelsConfig = [
         {
           name: 'test',
-          outcomes: [{ key: '0.00', p: 1.5 }],
+          outcomes: [{ key: '0.00', p: 1.5, multiplier: 0.0 }],
         },
       ];
 
@@ -155,7 +155,7 @@ describe('Slot Registry', () => {
       const config: SlotModelsConfig = [
         {
           name: 'test',
-          outcomes: [{ key: '0.00', p: NaN }],
+          outcomes: [{ key: '0.00', p: NaN, multiplier: 0.0 }],
         },
       ];
 
@@ -171,7 +171,7 @@ describe('Slot Registry', () => {
       const config: SlotModelsConfig = [
         {
           name: 'test',
-          outcomes: [{ key: '0.00', p: Infinity }],
+          outcomes: [{ key: '0.00', p: Infinity, multiplier: 0.0 }],
         },
       ];
 
@@ -188,8 +188,8 @@ describe('Slot Registry', () => {
         {
           name: 'test',
           outcomes: [
-            { key: '0.00', p: 0.5 },
-            { key: '1.00', p: 0.49 }, // Sum = 0.99, outside tolerance
+            { key: '0.00', p: 0.5, multiplier: 0.0 },
+            { key: '1.00', p: 0.49, multiplier: 1.0 }, // Sum = 0.99, outside tolerance
           ],
         },
       ];
@@ -207,8 +207,8 @@ describe('Slot Registry', () => {
         {
           name: 'test',
           outcomes: [
-            { key: '0.00', p: 0.6 },
-            { key: '1.00', p: 0.41 }, // Sum = 1.01, outside tolerance
+            { key: '0.00', p: 0.6, multiplier: 0.0 },
+            { key: '1.00', p: 0.41, multiplier: 1.0 }, // Sum = 1.01, outside tolerance
           ],
         },
       ];
@@ -226,9 +226,9 @@ describe('Slot Registry', () => {
         {
           name: 'test',
           outcomes: [
-            { key: '0.00', p: 0.3333333 },
-            { key: '1.00', p: 0.3333333 },
-            { key: '2.00', p: 0.3333334 }, // Sum = 1.0 (within 1e-6 tolerance)
+            { key: '0.00', p: 0.3333333, multiplier: 0.0 },
+            { key: '1.00', p: 0.3333333, multiplier: 1.0 },
+            { key: '2.00', p: 0.3333334, multiplier: 2.0 }, // Sum = 1.0 (within 1e-6 tolerance)
           ],
         },
       ];
@@ -253,7 +253,7 @@ describe('Slot Registry', () => {
       const config: SlotModelsConfig = [
         {
           name: 'test',
-          outcomes: [{ key: '0.00', p: 1.0 }],
+          outcomes: [{ key: '0.00', p: 1.0, multiplier: 0.0 }],
         },
       ];
 
@@ -268,14 +268,14 @@ describe('Slot Registry', () => {
       const config1: SlotModelsConfig = [
         {
           name: 'first',
-          outcomes: [{ key: '0.00', p: 1.0 }],
+          outcomes: [{ key: '0.00', p: 1.0, multiplier: 0.0 }],
         },
       ];
 
       const config2: SlotModelsConfig = [
         {
           name: 'second',
-          outcomes: [{ key: '0.00', p: 1.0 }],
+          outcomes: [{ key: '0.00', p: 1.0, multiplier: 0.0 }],
         },
       ];
 
@@ -297,13 +297,13 @@ describe('Slot Registry', () => {
         {
           name: 'low',
           outcomes: [
-            { key: '0.00', p: 0.7 },
-            { key: '1.00', p: 0.3 },
+            { key: '0.00', p: 0.7, multiplier: 0.0 },
+            { key: '1.00', p: 0.3, multiplier: 1.0 },
           ],
         },
         {
           name: 'high',
-          outcomes: [{ key: '0.00', p: 1.0 }],
+          outcomes: [{ key: '0.00', p: 1.0, multiplier: 0.0 }],
         },
       ];
 

@@ -698,3 +698,190 @@ rounds.forEach(round => {
 - **Migration tested:** Both up and down migrations verified to work correctly
 
 ---
+
+## Feature F-007: Spin Engine (Server-Only) ✅
+**Completed:** 2026-02-07
+**Status:** Verified and working
+
+### Implementation Summary
+Implemented a pure, deterministic slot spin engine that uses seeded RNG to select outcomes via cumulative probability lookup, calculates wagers and payouts, and returns a complete Round object with full details including RNG reproducibility information. The engine is side-effect free and ready for integration with the simulation system.
+
+### What Was Built
+- **Engine Types:**
+  - `src/engine/types.ts` - Core type definitions
+    - `RoundOutcome` - Complete outcome details (key, roll, multiplier, betAmount, payout, profitLoss)
+    - `RoundRngInfo` - RNG reproducibility info (globalSeed, roundSeed, roll)
+    - `Round` - Complete round result with UUID, timestamps, balances, and outcome details
+
+- **Spin Engine:**
+  - `src/engine/spin.ts` - Pure spin function implementation
+    - `SpinInput` type - Input parameters (slotName, wager, startingBalance, roundSeed, rng)
+    - `spin(input)` - Main engine function executing full spin algorithm
+    - `formatNumeric(n)` - Consistent numeric formatting (8 decimals, trimmed)
+    - `parseNumeric(value, fieldName, allowZero)` - Safe parsing with validation
+    - Cumulative probability lookup using slot model from registry
+    - Immediate balance mutation (returned in Round, no global state changes)
+    - UUID generation using `crypto.randomUUID()` (no new dependencies)
+
+- **Slot Model Enhancements:**
+  - Extended `src/slots/slotModels.config.ts` - Added multiplier field
+    - Updated `SlotOutcomeConfig` type with `multiplier: number`
+    - Added multiplier values to all 3 slot models (low, medium, high)
+    - Multipliers match outcome keys (0.0x, 0.5x, 1.0x, 2.0x, up to 10000x)
+
+  - Updated `src/slots/slotRegistry.ts` - Multiplier validation
+    - Added `multiplier` to `SlotOutcome` type
+    - Validates multiplier exists and is >= 0
+    - Throws descriptive error if multiplier missing or invalid
+
+- **Tests:**
+  - `test/spin.test.ts` - Comprehensive test suite (20 test cases)
+    - Deterministic behavior (same seed → same results)
+    - Outcome selection via cumulative probability boundaries
+    - Balance calculations (loss, break-even, win, fractional wagers)
+    - Input validation (insufficient balance, zero/negative wager, invalid strings)
+    - Round structure validation (all fields present, unique IDs, ISO timestamps)
+    - RNG seed handling (roundSeed, null, global RNG)
+
+  - Updated `test/slotRegistry.test.ts` - Added multiplier to all test configs
+    - Fixed all test slot configs to include multiplier field
+    - Maintains full backward compatibility
+
+### Spin Algorithm
+
+```
+1. Validate inputs:
+   - wager > 0 (throw if zero or negative)
+   - startingBalance >= 0
+   - wager <= startingBalance (throw if insufficient)
+
+2. Determine RNG:
+   - If roundSeed provided → createRng(roundSeed)
+   - Else if rng provided → use it
+   - Else → getGlobalRng()
+
+3. Roll: r = rng.random() ∈ [0, 1)
+
+4. Cumulative lookup:
+   - Get slot model from registry
+   - Find first outcome where r < cumP
+   - Defensive: use last outcome if none found
+
+5. Calculate:
+   - payout = wager × multiplier
+   - endedBalance = startingBalance - wager + payout
+   - profitLoss = payout - wager
+
+6. Return Round:
+   - UUID v4 identifier
+   - ISO timestamp
+   - Complete outcome details
+   - RNG info for reproducibility
+```
+
+### Slot Model Multipliers
+
+**Low Volatility:** 0.0x, 0.5x, 1.0x, 2.0x, 5.0x, 10.0x, 20.0x, 50.0x, 100.0x, 500.0x
+**Medium Volatility:** 0.0x, 0.5x, 1.5x, 3.0x, 8.0x, 15.0x, 35.0x, 100.0x, 300.0x, 1000.0x, 2500.0x
+**High Volatility:** 0.0x, 0.2x, 1.0x, 4.0x, 15.0x, 50.0x, 200.0x, 1000.0x, 3000.0x, 5000.0x, 10000.0x
+
+### Dependencies
+- **None added** - Uses `crypto.randomUUID()` from Node.js built-in crypto module
+
+### Verification Results
+- ✅ All tests passing (94/94 total: previous 74 + 20 spin engine)
+- ✅ Build successful - all TypeScript compiles without errors
+- ✅ Deterministic with roundSeed - same seed produces identical results
+- ✅ Non-deterministic without seed - different results each time
+- ✅ Correct outcome selection via cumulative probability lookup
+- ✅ Accurate balance calculations for all multiplier scenarios
+- ✅ Comprehensive input validation with clear error messages
+- ✅ No new runtime dependencies
+- ✅ No regressions in existing tests
+
+### Usage Example
+```typescript
+import { spin } from './engine/spin.js';
+
+// Execute a slot spin
+const round = spin({
+  slotName: 'low',
+  wager: '10.00',
+  startingBalance: '1000.00',
+  roundSeed: 'player-123-session-456-round-1', // Optional for determinism
+});
+
+// Round structure
+console.log(round.id);                    // "550e8400-e29b-41d4-a716-446655440000"
+console.log(round.slotName);              // "low"
+console.log(round.startedBalance);        // "1000"
+console.log(round.endedBalance);          // "990" (after loss)
+console.log(round.timestamp);             // "2026-02-07T20:15:30.123Z"
+
+// Outcome details
+console.log(round.outcome.key);           // "0.00" (loss)
+console.log(round.outcome.roll);          // 0.234567 (RNG value)
+console.log(round.outcome.multiplier);    // "0"
+console.log(round.outcome.betAmount);     // "10"
+console.log(round.outcome.payout);        // "0"
+console.log(round.outcome.profitLoss);    // "-10"
+
+// RNG reproducibility info
+console.log(round.rng.globalSeed);        // null or "env-seed"
+console.log(round.rng.roundSeed);         // "player-123-session-456-round-1"
+console.log(round.rng.roll);              // 0.234567 (matches outcome.roll)
+
+// Example: Winning round with 2x multiplier
+const winRound = spin({
+  slotName: 'low',
+  wager: '10.00',
+  startingBalance: '1000.00',
+  roundSeed: 'winning-seed',
+});
+// winRound.outcome.multiplier = "2"
+// winRound.outcome.payout = "20"
+// winRound.outcome.profitLoss = "10"
+// winRound.endedBalance = "1010"
+```
+
+### Test Coverage Highlights
+
+**Determinism:**
+- Same roundSeed produces identical outcomes across multiple runs
+- RNG roll, outcome key, multiplier, balances all match exactly
+
+**Cumulative Probability Boundaries (test model: 0.5, 0.8, 1.0):**
+- roll = 0.0 → outcome 1 (cumP = 0.5)
+- roll = 0.4999 → outcome 1
+- roll = 0.6 → outcome 2 (cumP = 0.8)
+- roll = 0.9 → outcome 3 (cumP = 1.0)
+
+**Balance Calculations:**
+- 0x multiplier: endedBalance = startingBalance - wager
+- 1x multiplier: endedBalance = startingBalance (break-even)
+- 2x multiplier: endedBalance = startingBalance + wager
+- Fractional wagers: 5.50 × 2.0 = 11.00 payout
+
+**Input Validation:**
+- wager = "0" → throws "wager must be > 0"
+- wager = "-10" → throws "wager must be > 0"
+- wager > balance → throws "Insufficient balance"
+- invalid string → throws "must be a valid number"
+
+### Notes
+- **Pure function:** No side effects, no global state mutations, fully testable
+- **Side-effect free:** Balance mutation only in return value, not in database or global state
+- **Rich output:** Returns complete Round object with full details, not just profit/loss
+- **Deterministic:** Reproducible results with roundSeed for debugging and auditing
+- **UUID generation:** Uses Node.js built-in `crypto.randomUUID()` (no new dependencies)
+- **Numeric formatting:** Uses 8 decimal places with trailing zero trimming for consistency
+- **Cumulative probability:** O(n) linear scan through outcomes (efficient for small n)
+- **Multiplier validation:** Ensures all outcomes have multiplier >= 0 during registry build
+- **No database:** Pure calculation engine, no session/game_round persistence yet (added in F-008+)
+- **Flexible RNG:** Supports per-round seeds, provided RNG instance, or global RNG
+- **Error messages:** Clear, actionable error messages include actual values for debugging
+- **Future integration:** Ready for use by simulation engine (F-008+) for hour-tick execution
+- **Server-only:** Module lives in `src/engine/` to keep RNG and game logic server-side only
+- **Type safety:** Full TypeScript types for Round, RoundOutcome, RoundRngInfo with strict validation
+
+---

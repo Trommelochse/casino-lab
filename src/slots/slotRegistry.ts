@@ -11,6 +11,7 @@ export type SlotOutcome = {
   key: string;
   p: number;
   cumP: number; // Cumulative probability
+  multiplier: number; // Win multiplier
 };
 
 export type SlotModel = {
@@ -72,7 +73,27 @@ function validateAndBuildModel(config: SlotModelConfig): SlotModel {
   let cumP = 0;
 
   for (let i = 0; i < outcomesConfig.length; i++) {
-    const { key, p } = outcomesConfig[i];
+    const { key, p, multiplier } = outcomesConfig[i];
+
+    // Validate multiplier exists
+    if (multiplier === undefined) {
+      throw new Error(
+        `Model '${name}', outcome '${key}': multiplier is required`
+      );
+    }
+
+    // Validate multiplier value
+    if (!Number.isFinite(multiplier)) {
+      throw new Error(
+        `Model '${name}', outcome '${key}': multiplier must be a finite number`
+      );
+    }
+
+    if (multiplier < 0) {
+      throw new Error(
+        `Model '${name}', outcome '${key}': multiplier must be >= 0, got ${multiplier}`
+      );
+    }
 
     // Validate probability value
     if (!Number.isFinite(p)) {
@@ -94,6 +115,7 @@ function validateAndBuildModel(config: SlotModelConfig): SlotModel {
       key,
       p,
       cumP,
+      multiplier,
     });
 
     // Verify strictly increasing (within floating-point tolerance)
