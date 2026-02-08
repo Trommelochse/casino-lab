@@ -2,6 +2,8 @@ import 'dotenv/config';
 import { buildApp } from './app.js';
 import { loadCasinoState } from './state/casinoState.js';
 import { closePool } from './db/pool.js';
+import slotModels from './slots/slotModels.config.js';
+import { buildSlotRegistry, initSlotRegistry } from './slots/slotRegistry.js';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -23,6 +25,12 @@ process.on('SIGTERM', () => closeGracefully('SIGTERM'));
 // Start server
 const start = async () => {
   try {
+    // Initialize slot registry (fail fast)
+    app.log.info('Loading slot models...');
+    const slotRegistry = buildSlotRegistry(slotModels);
+    initSlotRegistry(slotRegistry);
+    app.log.info(`Loaded ${Object.keys(slotRegistry).length} slot models`);
+
     // Load casino state from database
     app.log.info('Loading casino state from database...');
     await loadCasinoState();

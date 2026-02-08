@@ -29,7 +29,7 @@ This is an **Online Casino Simulator** - a client-server application modeling di
 
 ### Infrastructure & State
 * **State Management:** Immediate server-side mutations (No eventual consistency)
-* **Scaling:** Batch database updates per hour tick to minimize I/O overhead
+* **Scaling:** Batch database updates (including session and game round history) per hour tick to minimize I/O overhead.
 
 ## Core Design Principles
 
@@ -149,7 +149,7 @@ Server must handle 1,000+ players per hour tick without UI freezing. Use batch o
 All RNG must be server-side. No client-side randomness. Consider seed-based RNG for reproducible simulations.
 
 ### State Integrity
-Player balance mutations happen **immediately** within the micro-bet loop. Do not defer updates or use eventual consistency patterns.
+Player balance mutations happen immediately within the simulation logic. While the state is consistent, game round and session history are persisted via batch inserts at the end of the hour tick to ensure performance.
 
 ## Knowledge Base Reference
 

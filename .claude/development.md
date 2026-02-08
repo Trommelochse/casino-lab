@@ -416,3 +416,129 @@ random(): 0.1250827..., 0.7981641..., 0.4050710...  ✅ DIFFERENT
 - **Future use:** Will be used by slot game logic, player behavior simulation, and reward distributions
 
 ---
+
+## Feature F-006: Slot Model Config Loader + In-Memory Registry ✅
+**Completed:** 2026-02-07
+**Status:** Verified and working
+
+### Implementation Summary
+Created a TypeScript-based configuration system for slot game probability models with strict validation and in-memory registry. Loaded 3 complete slot models (low, medium, high volatility) with cumulative probability computation for fast RNG lookups during simulations.
+
+### What Was Built
+- **Slot Models Configuration:**
+  - `src/slots/slotModels.config.ts` - TypeScript config with all 3 slot models
+    - **Low Volatility** ("The Steady Farmer"): 10 outcomes, 28.5% hit rate, 500x max win
+    - **Medium Volatility** ("The Golden Temple"): 11 outcomes, 22.0% hit rate, 2,500x max win
+    - **High Volatility** ("The Dragon's Hoard"): 11 outcomes, 14.5% hit rate, 10,000x max win
+    - Data extracted from `.claude/knowledge-base/slot-models.md`
+    - Probabilities adjusted to sum to exactly 1.0
+    - TypeScript types: `SlotOutcomeConfig`, `SlotModelConfig`, `SlotModelsConfig`
+
+- **Registry + Validation:**
+  - `src/slots/slotRegistry.ts` - Validation engine and singleton registry
+    - `buildSlotRegistry(config)` - Validates and builds registry with cumulative probabilities
+    - `initSlotRegistry(registry)` - Stores registry in module-level singleton
+    - `getSlotRegistry()` - Returns full registry (throws if not initialized)
+    - `getSlotModel(name)` - Returns specific model (throws if not found)
+    - `__resetForTests()` - Test helper for clean state isolation
+
+- **Validation Logic:**
+  - ✅ Non-empty outcomes array (at least 1 outcome)
+  - ✅ Unique outcome keys (case-sensitive, no duplicates)
+  - ✅ Valid probabilities: `0 < p <= 1` and `Number.isFinite(p)`
+  - ✅ Cumulative probabilities strictly increasing
+  - ✅ Final cumulative probability equals 1.0 within tolerance (±1e-6)
+  - ✅ Clear error messages including model name and specific failure reason
+
+- **Server Integration:**
+  - Modified `src/server.ts` - Added slot registry initialization to boot sequence
+    - Loads slot models before casino state
+    - Fail-fast: server won't start if validation fails
+    - Logs "Loaded 3 slot models" on success
+
+- **Tests:**
+  - `test/slotRegistry.test.ts` - Comprehensive test suite (19 test cases)
+    - Valid config produces correct cumulative probabilities
+    - Duplicate keys rejected
+    - Invalid probabilities rejected (p <= 0, p > 1, NaN, Infinity)
+    - Probability sum validation (within tolerance)
+    - Registry initialization and retrieval tests
+    - Model lookup tests
+    - Real slot models from config validated
+
+### Slot Models Data
+
+**Low Volatility ("The Steady Farmer"):**
+```typescript
+outcomes: [
+  { key: '0.00', p: 0.715, cumP: 0.715 },     // Dead spin (71.5%)
+  { key: '0.50', p: 0.14, cumP: 0.855 },      // Partial return
+  { key: '1.00', p: 0.08, cumP: 0.935 },      // Money back
+  // ... 7 more outcomes
+  { key: '500.00', p: 0.0001, cumP: 1.0 }     // Max win (1 in 10,000)
+]
+```
+
+**Medium Volatility ("The Golden Temple"):**
+- 11 outcomes from 0.00x to 2,500.00x
+- Max win: 1 in 100,000 spins
+
+**High Volatility ("The Dragon's Hoard"):**
+- 11 outcomes from 0.00x to 10,000.00x
+- Max win: 1 in ~4,545 spins (adjusted probability)
+
+### Dependencies
+- **None added** - Pure TypeScript implementation
+
+### Verification Results
+- ✅ All tests passing (60/60 total: 1 health + 3 state + 9 player + 28 RNG + 19 slot registry)
+- ✅ Server boots successfully with slot models loaded
+- ✅ All probabilities sum to 1.0 within tolerance
+- ✅ Cumulative probabilities correctly computed
+- ✅ Validation prevents invalid configs from starting server
+- ✅ No new runtime dependencies added
+- ✅ No regressions in existing tests
+
+### Server Startup Log
+```
+{"msg":"Loading slot models..."}
+{"msg":"Loaded 3 slot models"}
+{"msg":"Loading casino state from database..."}
+{"msg":"Casino state loaded successfully"}
+{"msg":"Server listening on 0.0.0.0:3000"}
+```
+
+### Usage Example
+```typescript
+import { getSlotModel } from './slots/slotRegistry.js';
+
+// Get a specific slot model
+const lowVolModel = getSlotModel('low');
+
+// Access outcomes with cumulative probabilities
+console.log(lowVolModel.outcomes.length);    // 10
+console.log(lowVolModel.outcomes[0]);         // { key: '0.00', p: 0.715, cumP: 0.715 }
+console.log(lowVolModel.outcomes[9].cumP);    // 1.0
+
+// Use for RNG lookup (future simulation logic)
+const rngValue = 0.85;  // Random value from RNG [0, 1)
+const outcome = lowVolModel.outcomes.find(o => rngValue < o.cumP);
+console.log(outcome?.key);  // '0.50' (partial return)
+```
+
+### Notes
+- **TypeScript config only:** No runtime file parsing, no markdown parsing, purely TypeScript imports
+- **Fail-fast validation:** Invalid configurations prevent server startup entirely with clear error messages
+- **In-memory singleton:** Fast synchronous access via `getSlotModel(name)` with zero I/O overhead
+- **Cumulative probabilities:** Pre-computed during validation for O(n) RNG lookups (linear scan through outcomes)
+- **Data source:** Extracted from `.claude/knowledge-base/slot-models.md` with manual adjustment to ensure probabilities sum to 1.0
+- **Probability adjustments:** Some final probabilities were adjusted from markdown source to achieve exact 1.0 sum:
+  - Low: last value changed from 0.00005 to 0.0001
+  - Medium: last value changed from 0.00001 to 0.00002
+  - High: last value changed from 0.00001 to 0.00022
+- **Test isolation:** `__resetForTests()` clears singleton registry for independent test execution
+- **Future use:** Will be used by simulation engine (F-007+) to determine spin outcomes based on RNG values
+- **No endpoints yet:** Slot models are server-only data, no API exposure needed (internal use only)
+- **Prerequisite met:** This feature is required before implementing the hourly simulation engine
+
+---
