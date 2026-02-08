@@ -78,6 +78,18 @@ The initial migration creates:
 - Single-row global state (house revenue, active player count)
 - Always contains exactly one row with id=1
 
+**`sessions` table:**
+- Tracks player gaming sessions with start/end times and balance snapshots
+- Foreign key to players table with cascade delete
+- Indexed by player_id and started_at for efficient queries
+
+**`game_rounds` table:**
+- Stores individual bet/spin results within sessions
+- Foreign key to sessions table with cascade delete
+- Includes bet amount, multiplier, payout, and resulting balance
+- CHECK constraints ensure all monetary values are non-negative
+- Indexed by session_id and occurred_at for efficient queries
+
 ### Stop Database
 
 ```bash

@@ -542,3 +542,159 @@ console.log(outcome?.key);  // '0.50' (partial return)
 - **Prerequisite met:** This feature is required before implementing the hourly simulation engine
 
 ---
+
+## Feature F-006-B: Session and Game Rounds Tables + Base Models ✅
+**Completed:** 2026-02-07
+**Status:** Verified and working
+
+### Implementation Summary
+Added database tables and TypeScript models for session and game round tracking. Sessions track player gaming sessions with balance snapshots, while game_rounds store individual bet/spin results. Both use PostgreSQL with proper foreign keys, indexes, and CHECK constraints for data integrity.
+
+### What Was Built
+- **Database Migration:**
+  - `migrations/1770528912674_sessions-and-game-rounds.js` - New migration creating two tables
+    - **`sessions` table:** Tracks player sessions with start/end times and balance snapshots
+    - **`game_rounds` table:** Stores individual bet/spin results within sessions
+    - Foreign key constraints with CASCADE delete
+    - Indexes for efficient queries
+    - CHECK constraints for data validation
+
+- **TypeScript Models:**
+  - `src/models/session.ts` - Session domain model
+    - `Session` interface - camelCase domain entity (8 fields)
+    - `SessionRow` interface - snake_case database row shape
+    - `mapSessionRow(row)` - Pure mapper function with nullable field support
+    - Timestamp conversion helpers (Date → ISO string)
+
+  - `src/models/gameRound.ts` - GameRound domain model
+    - `GameRound` interface - camelCase domain entity (8 fields)
+    - `GameRoundRow` interface - snake_case database row shape
+    - `mapGameRoundRow(row)` - Pure mapper function
+    - Numeric preservation as strings (consistent with Player model)
+
+- **Tests:**
+  - `test/session.model.test.ts` - Session model tests (7 test cases)
+    - Field mapping validation (snake_case → camelCase)
+    - Null handling for open sessions (ended_at, final_balance)
+    - Numeric string preservation
+    - Date to ISO string conversion
+    - String timestamp preservation as-is
+    - Zero balance edge cases
+
+  - `test/gameRound.model.test.ts` - GameRound model tests (8 test cases)
+    - Complete field mapping validation
+    - Losing rounds (0x multiplier, 0 payout)
+    - Break-even rounds (1x multiplier)
+    - Big wins (high multipliers like 500x)
+    - Fractional multipliers (0.50x partial returns)
+    - Date and string timestamp handling
+
+- **Documentation:**
+  - Updated `README.md` - Added sessions and game_rounds table descriptions
+
+### Database Schema
+
+**`sessions` Table:**
+```sql
+CREATE TABLE sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  player_id UUID NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+  started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ended_at TIMESTAMPTZ NULL,              -- NULL = session still open
+  initial_balance NUMERIC NOT NULL,
+  final_balance NUMERIC NULL,             -- NULL until session closes
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Indexes
+CREATE INDEX idx_sessions_player_id ON sessions(player_id);
+CREATE INDEX idx_sessions_started_at ON sessions(started_at);
+```
+
+**`game_rounds` Table:**
+```sql
+CREATE TABLE game_rounds (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  bet_amount NUMERIC NOT NULL CHECK (bet_amount > 0),
+  multiplier NUMERIC NOT NULL CHECK (multiplier >= 0),
+  payout NUMERIC NOT NULL CHECK (payout >= 0),
+  resulting_balance NUMERIC NOT NULL CHECK (resulting_balance >= 0),
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Indexes
+CREATE INDEX idx_game_rounds_session_id ON game_rounds(session_id);
+CREATE INDEX idx_game_rounds_occurred_at ON game_rounds(occurred_at);
+```
+
+### Foreign Key Cascade Behavior
+```
+Player (deleted)
+  └─> Sessions (CASCADE deleted)
+        └─> Game Rounds (CASCADE deleted)
+```
+
+When a player is deleted, all their sessions and game rounds are automatically removed from the database, maintaining referential integrity.
+
+### Dependencies
+- **None added** - Uses existing PostgreSQL setup from F-002
+
+### Verification Results
+- ✅ All tests passing (74/74 total: previous 60 + 7 session + 7 game_round)
+- ✅ Migration up successful - tables created with all constraints, indexes, and foreign keys
+- ✅ Migration down successful - tables dropped in correct order (game_rounds → sessions)
+- ✅ Build successful - all TypeScript compiles without errors
+- ✅ No new runtime dependencies
+- ✅ No regressions in existing tests
+
+### Usage Example
+```typescript
+import { mapSessionRow, mapGameRoundRow } from './models';
+import { pool } from './db/pool.js';
+
+// Query and map a session
+const sessionResult = await pool.query(
+  'SELECT * FROM sessions WHERE player_id = $1 AND ended_at IS NULL',
+  [playerId]
+);
+const openSession = mapSessionRow(sessionResult.rows[0]);
+
+console.log(openSession.playerId);         // "987fcdeb-..."
+console.log(openSession.startedAt);        // "2026-02-07T10:00:00.000Z"
+console.log(openSession.endedAt);          // null (session is open)
+console.log(openSession.initialBalance);   // "1000.00"
+console.log(openSession.finalBalance);     // null (not closed yet)
+
+// Query and map game rounds for a session
+const roundsResult = await pool.query(
+  'SELECT * FROM game_rounds WHERE session_id = $1 ORDER BY occurred_at',
+  [sessionId]
+);
+const rounds = roundsResult.rows.map(mapGameRoundRow);
+
+rounds.forEach(round => {
+  console.log(`Bet: ${round.betAmount}, Multiplier: ${round.multiplier}, Payout: ${round.payout}`);
+  // "Bet: 10.00, Multiplier: 2.50, Payout: 25.00"
+});
+```
+
+### Notes
+- **Nullable fields:** Open sessions have `ended_at = NULL` and `final_balance = NULL`
+- **CHECK constraints:** Database enforces business rules (bet_amount > 0, others >= 0)
+- **Numeric as strings:** All monetary values stored as PostgreSQL numeric, mapped to strings in TypeScript to preserve precision
+- **Cascade deletes:** Deleting a player automatically removes all sessions and game rounds
+- **Indexed queries:** Efficient lookups by player_id, session_id, and timestamps
+- **No repositories yet:** These are domain models only; repository layer will be added in future features
+- **No endpoints yet:** Tables exist for simulation engine to populate, no API exposure needed yet
+- **Audit trail:** Both tables include created_at timestamps; sessions also track updated_at
+- **Open sessions:** A session is considered "open" when ended_at is NULL
+- **Balance snapshots:** Sessions store initial_balance (at start) and final_balance (at end)
+- **Per-round tracking:** Each game_round stores the resulting_balance after that specific bet
+- **Future use:** Simulation engine (F-007+) will populate these tables during hour ticks
+- **Batch inserts:** Following CLAUDE.md architecture, game_rounds will be batch-inserted at end of hour tick for performance
+- **Migration tested:** Both up and down migrations verified to work correctly
+
+---
