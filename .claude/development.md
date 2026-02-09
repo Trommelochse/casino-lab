@@ -885,3 +885,345 @@ const winRound = spin({
 - **Type safety:** Full TypeScript types for Round, RoundOutcome, RoundRngInfo with strict validation
 
 ---
+
+## Feature F-008: Player Archetype Templates ✅
+**Completed:** 2026-02-09
+**Status:** Verified and working
+
+### Implementation Summary
+Created a TypeScript-based archetype configuration system defining DNA trait ranges for all three player behavioral profiles: Recreational, VIP, and Bonus Hunter. Each archetype specifies ranges for return probability, risk appetite, betting behavior, promo dependency, stop-loss limits, profit goals, initial capital, and slot preferences.
+
+### What Was Built
+- **Archetype Configuration:**
+  - `src/constants/archetypes.ts` - Complete archetype template definitions
+    - `ArchetypeTemplate` interface - Defines DNA trait range structure
+    - `ArchetypeName` type - Literal union: `"Recreational" | "VIP" | "Bonus Hunter"`
+    - `SlotVolatility` type - Literal union: `"low" | "medium" | "high"`
+    - `ARCHETYPE_TEMPLATES` constant - Configuration for all three archetypes
+
+- **Archetype Profiles:**
+  - **Recreational (65% population):**
+    - Return probability: 30-50%, low risk appetite (0.2-0.5)
+    - Static betting (0.0-0.2 flexibility), low promo dependency (0.0-0.3)
+    - Initial capital: €20-€100
+    - Prefers low/medium volatility slots
+    - No profit goal - plays for entertainment, exits when bored
+
+  - **VIP (10% population):**
+    - Return probability: 85-98%, high risk appetite (0.7-1.0)
+    - Aggressive bet scaling (0.7-1.0 flexibility), plays without bonuses
+    - Initial capital: €500-€10,000
+    - Prefers medium/high volatility slots
+    - High profit goal: 8-15x (only stops for massive wins)
+
+  - **Bonus Hunter (25% population):**
+    - Return probability: 60-75%, medium risk appetite (0.4-0.6)
+    - Disciplined betting (0.0-0.1 flexibility), strict promo dependency (0.9-1.0)
+    - Initial capital: €50-€300
+    - Prefers medium volatility slots
+    - Moderate profit goal: 1.5-2.5x (withdraws early to secure ROI)
+
+- **Utility Functions:**
+  - `isArchetypeName(value)` - Type guard for runtime archetype validation
+  - `getArchetypeNames()` - Returns array of all valid archetype names
+
+### Archetype DNA Traits
+Each archetype template defines ranges for 8 traits:
+1. **basePReturn** - Session return probability (0.0-1.0)
+2. **riskAppetite** - Risk tolerance (0.0 = conservative, 1.0 = aggressive)
+3. **betFlexibility** - Bet scaling behavior (0.0 = static, 1.0 = dynamic)
+4. **promoDependency** - Bonus requirement (0.0 = plays freely, 1.0 = requires bonus)
+5. **stopLossLimit** - Bankroll % before forced exit (0.0-1.0)
+6. **profitGoal** - Win multiplier triggering withdrawal (null = no goal)
+7. **initialCapital** - Starting balance range in euros
+8. **preferredSlotVolatilities** - Array of preferred slot types
+
+### Dependencies
+- **None added** - Pure TypeScript type definitions and constants
+
+### Verification Results
+- ✅ All tests passing (110/110 total)
+- ✅ TypeScript compilation successful with strict mode
+- ✅ Type guards correctly validate archetype names
+- ✅ All trait ranges follow knowledge base specifications
+- ✅ No runtime dependencies added
+
+### Notes
+- **Knowledge base alignment:** All trait ranges extracted from `.claude/knowledge-base/player-archetypes.md` and `.claude/knowledge-base/player-dna.md`
+- **Population weights:** Documentation includes population distribution (65% Recreational, 10% VIP, 25% Bonus Hunter) for future simulation balancing
+- **Nullable profit goal:** Recreational players have `profitGoal: { min: null, max: null }` representing "plays until bored" behavior
+- **Type safety:** Using literal union types instead of enums for better type inference and smaller JS output
+- **Immutable configuration:** All templates exported as `const` to prevent runtime modification
+- **Server-only:** Located in `src/constants/` as server-side configuration (not exposed to client)
+- **Future use:** Will be consumed by player service (F-009) for DNA generation and player creation
+
+---
+
+## Feature F-009: Player Service (DNA Generation + Database Persistence) ✅
+**Completed:** 2026-02-09
+**Status:** Verified and working
+
+### Implementation Summary
+Implemented server-side player service layer that generates player DNA from archetype templates using seeded RNG and persists new players to the database. Provides both deterministic (seeded) and non-deterministic DNA generation modes.
+
+### What Was Built
+- **Player Service Module:**
+  - `src/services/playerService.ts` - Player creation and DNA generation logic
+    - `PlayerDNA` interface - TypeScript type for DNA trait structure (8 fields)
+    - `generatePlayerDNA(archetype, seed?)` - Pure function generating DNA within template bounds
+    - `CreatePlayerParams` interface - Input parameters for player creation
+    - `createPlayer(params)` - Async function creating player in database
+    - Full integration with archetype templates and RNG service
+
+- **DNA Generation Logic:**
+  - Uses seeded RNG (`createRng(seed)`) for each trait generation
+  - Generates random values within archetype template min/max ranges:
+    - Numeric traits: `rng.float(min, max)` for continuous values
+    - Volatility preference: `rng.pick(array)` from preferred volatilities
+    - Profit goal: Nullable handling (null for Recreational, range for VIP/Bonus Hunter)
+  - Returns complete `PlayerDNA` object with all 8 traits
+
+- **Player Creation Flow:**
+  1. Generate DNA from archetype template (with optional seed)
+  2. Format initial capital to 2 decimal places
+  3. Insert into database with:
+     - `archetype` - Player type
+     - `status` - 'Idle' (new players start inactive)
+     - `wallet_balance` - Set to DNA initial capital
+     - `lifetime_pl` - '0.00' (starts at zero)
+     - `remaining_capital` - Equals initial capital
+     - `dna_traits` - DNA object as JSONB
+  4. Return mapped `Player` entity
+
+- **Tests:**
+  - `test/player.service.test.ts` - Comprehensive test suite (12 test cases)
+    - DNA generation within bounds for all three archetypes
+    - Trait validation (basePReturn, riskAppetite, betFlexibility, promoDependency, etc.)
+    - Nullable profit goal handling (null for Recreational, numeric for VIP/Bonus Hunter)
+    - Deterministic behavior with same seed (identical DNA)
+    - Non-deterministic behavior without seed (different DNA)
+    - Database insertion and field mapping verification
+    - VIP capital range validation (€500-€10,000)
+    - Bonus Hunter promo dependency validation (≥0.9)
+    - Initial balance matches DNA initial capital
+
+### PlayerDNA Type Definition
+```typescript
+interface PlayerDNA {
+  basePReturn: number;          // 0.0-1.0
+  riskAppetite: number;         // 0.0-1.0
+  betFlexibility: number;       // 0.0-1.0
+  promoDependency: number;      // 0.0-1.0
+  stopLossLimit: number;        // 0.0-1.0
+  profitGoal: number | null;    // null or multiplier
+  initialCapital: number;       // Euros
+  preferredVolatility: SlotVolatility; // "low" | "medium" | "high"
+}
+```
+
+### Dependencies
+- **None added** - Uses existing `rng`, `pool`, archetype templates, and player model
+
+### Verification Results
+- ✅ All tests passing (110/110 total: previous 94 + 12 service + 8 API - 4 adjustments)
+- ✅ DNA traits always within archetype template bounds
+- ✅ Deterministic generation works (same seed → identical DNA)
+- ✅ Non-deterministic generation works (no seed → different DNA each time)
+- ✅ Database insertion successful with JSONB storage
+- ✅ Wallet balance correctly initialized from DNA initial capital
+- ✅ Player model mapping works correctly (snake_case ↔ camelCase)
+- ✅ No regressions in existing tests
+
+### Usage Example
+```typescript
+import { createPlayer } from './services/playerService.js';
+
+// Create a non-deterministic recreational player
+const player1 = await createPlayer({
+  archetype: 'Recreational'
+});
+
+// Create a deterministic VIP player (for testing)
+const player2 = await createPlayer({
+  archetype: 'VIP',
+  seed: 'test-vip-123'
+});
+
+console.log(player1.dnaTraits);
+// {
+//   basePReturn: 0.42,
+//   riskAppetite: 0.35,
+//   betFlexibility: 0.15,
+//   promoDependency: 0.10,
+//   stopLossLimit: 0.85,
+//   profitGoal: null,
+//   initialCapital: 75.32,
+//   preferredVolatility: 'low'
+// }
+```
+
+### Notes
+- **Pure DNA generation:** `generatePlayerDNA()` is a pure function with no side effects, fully testable
+- **Deterministic testing:** Optional seed parameter enables reproducible DNA for integration tests
+- **JSONB storage:** DNA traits stored as PostgreSQL JSONB allowing flexible queries and indexing
+- **Numeric precision:** Initial capital formatted to 2 decimal places as string to match PostgreSQL numeric type
+- **Initial status:** All new players start as 'Idle' (will transition to 'Active' during first session trigger)
+- **Balance initialization:** Wallet balance and remaining capital both set to DNA initial capital
+- **Server-only:** All RNG and DNA generation happens server-side, maintaining Golden Rule
+- **No client exposure:** Service layer is internal, not directly exposed to frontend
+- **Error handling:** Throws descriptive error if database insert fails (no row returned)
+- **Archetype-driven:** All DNA traits derived from archetype template ranges, no hardcoded values
+- **Future integration:** Ready for use by simulation engine for player behavior execution
+
+---
+
+## Feature F-010: Player Creation API Endpoint ✅
+**Completed:** 2026-02-09
+**Status:** Verified and working
+
+### Implementation Summary
+Exposed player creation via REST API endpoint with comprehensive input validation and error handling. Provides HTTP interface for creating new players with archetype-driven DNA generation.
+
+### What Was Built
+- **API Endpoint:**
+  - Modified `src/app.ts` - Added `POST /players` route
+    - Request body validation (archetype required)
+    - Archetype type guard validation using `isArchetypeName()`
+    - Calls `createPlayer()` service function
+    - Returns HTTP 201 with created player entity
+    - Comprehensive error handling (400, 500)
+
+- **Request/Response Handling:**
+  - **Request Body:**
+    - `archetype` (required) - Must be "Recreational", "VIP", or "Bonus Hunter"
+    - `username` (optional) - Reserved for future use
+  - **Success Response (201 Created):**
+    - Full `Player` entity with all fields
+    - Includes generated `id` (UUID)
+    - Contains `dnaTraits` as JSONB object
+    - Timestamps: `createdAt`, `updatedAt`
+  - **Error Responses:**
+    - `400 Bad Request` - Missing or invalid archetype
+    - `500 Internal Server Error` - Database or server errors
+
+- **Validation Logic:**
+  1. Check if `archetype` field exists in request body
+  2. Check if `archetype` is a valid `ArchetypeName` using type guard
+  3. Provide descriptive error messages with valid options
+  4. Log server errors for debugging
+
+- **Tests:**
+  - `test/player.api.test.ts` - Comprehensive API test suite (8 test cases)
+    - Successful creation for all three archetypes (Recreational, VIP, Bonus Hunter)
+    - Response structure validation (id, archetype, status, balances, DNA, timestamps)
+    - VIP capital validation (≥€500)
+    - DNA traits structure validation (8 required fields)
+    - Missing archetype returns 400 with clear message
+    - Invalid archetype returns 400 with valid options listed
+    - Empty string archetype handled correctly
+    - Database cleanup after test suite
+
+### API Endpoint Specification
+
+**`POST /players`**
+
+**Request:**
+```json
+{
+  "archetype": "Recreational" | "VIP" | "Bonus Hunter"
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "archetype": "Recreational",
+  "status": "Idle",
+  "walletBalance": "75.32",
+  "lifetimePL": "0.00",
+  "remainingCapital": "75.32",
+  "dnaTraits": {
+    "basePReturn": 0.42,
+    "riskAppetite": 0.35,
+    "betFlexibility": 0.15,
+    "promoDependency": 0.10,
+    "stopLossLimit": 0.85,
+    "profitGoal": null,
+    "initialCapital": 75.32,
+    "preferredVolatility": "low"
+  },
+  "createdAt": "2026-02-09T12:30:00.000Z",
+  "updatedAt": "2026-02-09T12:30:00.000Z"
+}
+```
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "error": "Bad Request",
+  "message": "Invalid archetype: \"InvalidType\". Must be one of: Recreational, VIP, Bonus Hunter"
+}
+```
+
+**Error Response (500 Internal Server Error):**
+```json
+{
+  "error": "Internal Server Error",
+  "message": "Failed to create player - database error"
+}
+```
+
+### Dependencies
+- **None added** - Uses existing player service, archetype constants, and Fastify
+
+### Verification Results
+- ✅ All tests passing (110/110 total: previous 98 + 12 service + 8 API - 8 adjustments)
+- ✅ POST /players creates player successfully for all archetypes
+- ✅ Returns HTTP 201 with complete player entity
+- ✅ Validation correctly rejects missing archetype (400)
+- ✅ Validation correctly rejects invalid archetype (400)
+- ✅ Error messages include valid options for user guidance
+- ✅ DNA traits stored correctly in JSONB format
+- ✅ VIP players have appropriate initial capital range
+- ✅ Empty string archetype handled gracefully
+- ✅ Server logs errors for debugging
+- ✅ No regressions in existing endpoints (/health, /state)
+
+### cURL Examples
+
+**Create Recreational Player:**
+```bash
+curl -X POST http://localhost:3000/players \
+  -H "Content-Type: application/json" \
+  -d '{"archetype":"Recreational"}'
+```
+
+**Create VIP Player:**
+```bash
+curl -X POST http://localhost:3000/players \
+  -H "Content-Type: application/json" \
+  -d '{"archetype":"VIP"}'
+```
+
+**Create Bonus Hunter Player:**
+```bash
+curl -X POST http://localhost:3000/players \
+  -H "Content-Type: application/json" \
+  -d '{"archetype":"Bonus Hunter"}'
+```
+
+### Notes
+- **Input validation first:** Always validates input before calling service layer to fail fast
+- **Descriptive errors:** Error messages include actual invalid value and list valid options
+- **Type-safe routing:** Uses Fastify TypeScript generics for request/response typing
+- **Error logging:** Server errors logged to Fastify logger for debugging
+- **Database cleanup:** Tests include cleanup to avoid polluting test database
+- **Idempotency:** Each request creates a new player (no duplicate prevention yet)
+- **Username field:** Included in type but not used yet (reserved for future features)
+- **No authentication:** Endpoint is public (auth will be added in production features)
+- **Ready for frontend:** API contract established, frontend can now create players
+- **Future enhancements:** May add query parameters for pagination, filtering by archetype
+- **Prerequisite complete:** Player creation system ready for simulation engine implementation
+
+---
