@@ -1,6 +1,6 @@
 import Fastify, { FastifyServerOptions } from 'fastify';
 import { getCasinoState } from './state/casinoState.js';
-import { createPlayer } from './services/playerService.js';
+import { createPlayer, getAllPlayers } from './services/playerService.js';
 import { isArchetypeName } from './constants/archetypes.js';
 
 export function buildApp(opts: FastifyServerOptions = {}) {
@@ -19,12 +19,28 @@ export function buildApp(opts: FastifyServerOptions = {}) {
   // Casino state endpoint
   app.get('/state', async (_request, reply) => {
     try {
-      const state = getCasinoState();
-      return reply.status(200).send(state);
+      // Get cached casino state (fails fast if not loaded)
+      const casinoState = getCasinoState();
+
+      // Fetch all players from database
+      const players = await getAllPlayers();
+
+      // Return combined state
+      return reply.status(200).send({
+        casino: casinoState,
+        players: players,
+      });
     } catch (err) {
       const error = err as Error;
-      return reply.status(503).send({
-        error: 'Service Unavailable',
+      app.log.error(error);
+
+      // Distinguish initialization errors (503) from runtime errors (500)
+      const isInitError = error.message.includes('not loaded');
+      const statusCode = isInitError ? 503 : 500;
+      const errorType = isInitError ? 'Service Unavailable' : 'Internal Server Error';
+
+      return reply.status(statusCode).send({
+        error: errorType,
         message: error.message,
       });
     }

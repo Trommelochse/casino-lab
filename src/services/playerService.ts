@@ -154,3 +154,20 @@ export async function createPlayer(
 
   return mapPlayerRow(result.rows[0]);
 }
+
+/**
+ * Retrieve all players from the database
+ * @returns Array of all Player entities
+ */
+export async function getAllPlayers(): Promise<Player[]> {
+  const query = `
+    SELECT
+      id, archetype, status, wallet_balance, lifetime_pl,
+      remaining_capital, dna_traits, created_at, updated_at
+    FROM players
+    ORDER BY created_at DESC
+  `;
+
+  const result = await pool.query<PlayerRow>(query);
+  return result.rows.map(mapPlayerRow);
+}
