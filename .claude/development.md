@@ -1837,6 +1837,13 @@ POST /simulate/hour
 
 ### Implementation Notes
 
+**Features Included:**
+This implementation encompasses multiple related features:
+- **F-016: Hour tick orchestrator** - `simulateHourTick()` in `simulationOrchestrator.ts` handles filtering Active players, dispatching workers, collecting results, and batch persistence
+- **F-017: Hour simulation endpoint** - `POST /simulate/hour` triggers exactly one hour tick (no loops, timers, or cron)
+- **F-018: Casino totals reconciliation** - Computes house revenue from wagers vs wins (`betAmount - payout`) and updates casino state atomically within transaction
+- **F-019: State integrity guarantees** - All operations wrapped in transaction boundaries (BEGIN/COMMIT/ROLLBACK) ensuring no partial state exposure via `/state` endpoint
+
 **Bet Sizing & Progression:**
 - **Spins per hour:**
   - Recreational: 60-180 (1-3 spins/min)

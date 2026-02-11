@@ -1,39 +1,26 @@
 {
-  "name": "casino-lab-backend",
+  "name": "casino-lab",
   "version": "1.0.0",
-  "description": "Online Casino Simulator - Backend Simulation Engine",
-  "type": "module",
-  "main": "dist/server.js",
-  "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/server.js",
-    "test": "tsx --test test/*.test.ts",
-    "db:migrate": "node-pg-migrate up",
-    "db:rollback": "node-pg-migrate down"
-  },
-  "keywords": [
-    "casino",
-    "simulator",
-    "fastify"
+  "private": true,
+  "description": "Online Casino Simulator - Monorepo",
+  "workspaces": [
+    "backend",
+    "frontend"
   ],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "dotenv": "^17.2.4",
-    "fastify": "^5.2.1",
-    "pg": "^8.13.1",
-    "seedrandom": "^3.0.5"
-  },
-  "devDependencies": {
-    "@types/node": "^22.10.5",
-    "@types/pg": "^8.11.10",
-    "@types/seedrandom": "^3.0.8",
-    "node-pg-migrate": "^7.8.1",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+  "scripts": {
+    "dev": "npm run dev --workspace=backend",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:all": "npm run dev --workspace=backend & npm run dev --workspace=frontend",
+    "build": "npm run build --workspaces",
+    "build:backend": "npm run build --workspace=backend",
+    "build:frontend": "npm run build --workspace=frontend",
+    "test": "npm run test --workspace=backend",
+    "db:migrate": "npm run db:migrate --workspace=backend",
+    "db:rollback": "npm run db:rollback --workspace=backend"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.0.0",
+    "npm": ">=8.0.0"
   }
 }

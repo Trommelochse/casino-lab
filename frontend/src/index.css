@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+/* Optional: Custom theme configuration using CSS-first approach */
+@theme {
+  /* Casino-themed colors using OKLCH color space */
+  --color-casino-primary: oklch(0.65 0.25 265);
+  --color-casino-accent: oklch(0.75 0.18 35);
+  --color-success: oklch(0.70 0.20 145);
+  --color-danger: oklch(0.65 0.25 25);
+
+  /* Typography */
+  --font-display: "Inter", system-ui, sans-serif;
+
+  /* Custom spacing for dashboard */
+  --spacing-dashboard: 2rem;
+}
+
+/* Reset and base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-display);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}

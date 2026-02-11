@@ -1,244 +1,189 @@
-# Casino Lab Backend
+# Casino Lab
 
-Online Casino Simulator - Backend Simulation Engine
+**Online Casino Simulator** - A client-server application modeling digital casino operations with simulated player behavior, financial volatility, and population dynamics.
 
-## Requirements
+## Project Structure
 
-- Node.js LTS (>= 20.0.0)
-- npm or yarn
-- Docker & Docker Compose (for local database)
-- PostgreSQL 16+ (if not using Docker)
+This is a monorepo containing both backend and frontend workspaces:
 
-## Installation
+```
+casino-lab/
+├── backend/              # Node.js + Fastify simulation engine
+│   ├── src/             # Backend source code
+│   ├── test/            # Backend tests
+│   ├── migrations/      # Database migrations
+│   └── package.json     # Backend dependencies
+├── frontend/            # React monitoring dashboard
+│   ├── src/             # Frontend source code
+│   └── package.json     # Frontend dependencies
+├── .claude/             # Project documentation
+├── package.json         # Workspace root configuration
+└── docker-compose.yml   # PostgreSQL database
+```
+
+## Quick Start
+
+### Prerequisites
+
+- **Node.js** LTS (>= 20.0.0)
+- **npm** >= 8.0.0
+- **Docker & Docker Compose** (for local database)
+
+### Installation
+
+Install all workspace dependencies:
 
 ```bash
 npm install
 ```
 
-## Environment Setup
+### Database Setup
 
-Copy the example environment file and configure as needed:
-
-```bash
-cp .env.example .env
-```
-
-Default configuration:
-- `PORT=3000` - Server port
-- `HOST=0.0.0.0` - Server host
-- `NODE_ENV=development` - Environment mode
-- `DATABASE_URL=postgres://postgres:postgres@localhost:5432/casino_dev` - PostgreSQL connection string (required)
-- `DB_POOL_MAX=10` - Maximum number of database connections in the pool (optional)
-- `RNG_SEED` - Seed for deterministic random number generation (optional, for reproducible simulations)
-
-## Database Setup
-
-### Start PostgreSQL (Docker)
-
-Start the local PostgreSQL database using Docker Compose:
+Start PostgreSQL using Docker Compose:
 
 ```bash
 docker-compose up -d
 ```
 
-This will start PostgreSQL 16 on port 5432 with:
-- Database: `casino_dev`
-- User: `postgres`
-- Password: `postgres`
-
-Check database health:
-
-```bash
-docker-compose ps
-```
-
-### Run Migrations
-
-Apply all pending migrations:
+Run database migrations:
 
 ```bash
 npm run db:migrate
 ```
 
-Rollback the last migration:
+### Development
+
+Start the backend server (http://localhost:3000):
 
 ```bash
-npm run db:rollback
+npm run dev:backend
 ```
 
-### Database Schema
-
-The initial migration creates:
-
-**`players` table:**
-- Stores player state (wallet balance, lifetime P/L, archetype, DNA traits)
-- Indexed by status and archetype for efficient queries
-
-**`casino_state` table:**
-- Single-row global state (house revenue, active player count)
-- Always contains exactly one row with id=1
-
-**`sessions` table:**
-- Tracks player gaming sessions with start/end times and balance snapshots
-- Foreign key to players table with cascade delete
-- Indexed by player_id and started_at for efficient queries
-
-**`game_rounds` table:**
-- Stores individual bet/spin results within sessions
-- Foreign key to sessions table with cascade delete
-- Includes bet amount, multiplier, payout, and resulting balance
-- CHECK constraints ensure all monetary values are non-negative
-- Indexed by session_id and occurred_at for efficient queries
-
-### Stop Database
+In another terminal, start the frontend dashboard (http://localhost:5173):
 
 ```bash
-docker-compose down
+npm run dev:frontend
 ```
 
-To also remove the data volume:
+Or start both simultaneously:
 
 ```bash
-docker-compose down -v
+npm run dev:all
 ```
 
-## Development
+### Testing
 
-### Run in Development Mode (with watch)
-
-```bash
-npm run dev
-```
-
-The server will start with hot-reload enabled. Any changes to `.ts` files will automatically restart the server.
-
-### Build for Production
-
-```bash
-npm run build
-```
-
-This compiles TypeScript files from `src/` to `dist/`.
-
-### Run Production Build
-
-```bash
-npm start
-```
-
-Runs the compiled JavaScript from `dist/`.
-
-## Testing
-
-Run all tests:
+Run backend tests:
 
 ```bash
 npm test
 ```
 
-Tests are written using Node.js built-in test runner and run directly from TypeScript using `tsx`.
+## Workspace Commands
+
+### Development
+
+- `npm run dev` - Start backend server (alias for dev:backend)
+- `npm run dev:backend` - Start backend server with hot-reload
+- `npm run dev:frontend` - Start frontend dev server with Vite
+- `npm run dev:all` - Start both backend and frontend
+
+### Build
+
+- `npm run build` - Build both workspaces
+- `npm run build:backend` - Compile backend TypeScript
+- `npm run build:frontend` - Build frontend for production
+
+### Testing & Database
+
+- `npm test` - Run backend tests
+- `npm run db:migrate` - Run database migrations
+- `npm run db:rollback` - Rollback last migration
+
+## Architecture
+
+### Backend (Simulation Engine)
+
+- **Runtime:** Node.js with TypeScript
+- **Framework:** Fastify (high-performance REST API)
+- **Database:** PostgreSQL 16+ with connection pooling
+- **RNG:** Seedrandom (deterministic, reproducible simulations)
+- **Concurrency:** Worker Threads (offload micro-bet loops)
+
+See [backend/README.md](backend/README.md) for detailed backend documentation.
+
+### Frontend (Monitoring Dashboard)
+
+- **Framework:** React 18 with Vite
+- **Data Fetching:** TanStack Query (polling `/state` endpoint)
+- **Styling:** Tailwind CSS
+- **Communication:** REST API (view-only, no client-side logic)
+
+The frontend displays server-calculated state. All game logic, RNG, and financial calculations occur server-side.
+
+## Core Features
+
+### Simulation Engine
+
+- **Hour-based discrete simulation** with batch processing
+- **Player archetypes:** Recreational (65%), VIP (10%), Bonus Hunter (25%)
+- **DNA trait system:** Genetic behavioral traits drive player decisions
+- **Three slot volatility models:** Low, Medium, High (see `.claude/knowledge-base/slot-models.md`)
+- **Worker pool architecture:** Handles 1,000+ players per hour tick
+
+### Player Behavior
+
+- **Session triggers:** Based on `basePReturn`, active bonuses, or promo dependency
+- **Dynamic betting:** Static to aggressive scaling based on `betFlexibility`
+- **Exit conditions:** Broke, stop-loss limit, or profit goal achieved
+- **Reward system:** Free spins, cashback, tiered loyalty programs
+
+### Monitoring Dashboard
+
+- **Real-time state display:** Casino totals and player list
+- **Player management:** Create new players with archetype selection
+- **Simulation controls:** Trigger hour ticks and observe results
+- **TanStack Query polling:** Auto-refresh every 2 seconds
+
+## Technical Documentation
+
+Detailed design documents are in `.claude/`:
+
+- **CLAUDE.md** - Project overview and AI assistant instructions
+- **development.md** - Backend feature changelog
+- **frontend-development.md** - Frontend feature changelog
+- **knowledge-base/** - Game math, player archetypes, rewards logic
+
+## Database
+
+PostgreSQL 16+ with the following schema:
+
+- **players** - Player state, wallet balances, DNA traits
+- **casino_state** - Global casino statistics (single-row table)
+- **sessions** - Player gaming sessions with start/end times
+- **game_rounds** - Individual bet/spin results
+
+Start database:
+```bash
+docker-compose up -d
+```
+
+Stop database:
+```bash
+docker-compose down
+```
 
 ## API Endpoints
 
-### Health Check
+Backend server runs on **http://localhost:3000**
 
-```bash
-curl http://localhost:3000/health
-```
+- `GET /health` - Health check
+- `GET /state` - Complete casino state (casino + all players)
+- `POST /players` - Create new player with archetype
+- `POST /simulate/hour` - Execute hour tick simulation
 
-**Response:**
-```json
-{
-  "status": "ok"
-}
-```
+See [backend/README.md](backend/README.md) for detailed API documentation.
 
-### Casino State (Complete Simulation State)
+## License
 
-Get the current casino state and all players in a single request.
-
-```bash
-curl http://localhost:3000/state
-```
-
-**Response (200 OK):**
-```json
-{
-  "casino": {
-    "id": 1,
-    "house_revenue": "12345.67",
-    "active_player_count": 42,
-    "updated_at": "2026-02-10T12:00:00.000Z"
-  },
-  "players": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "archetype": "Recreational",
-      "status": "Active",
-      "walletBalance": "100.50",
-      "lifetimePL": "-23.45",
-      "remainingCapital": "76.55",
-      "dnaTraits": {
-        "basePReturn": 0.42,
-        "riskAppetite": 0.35,
-        "betFlexibility": 0.15,
-        "promoDependency": 0.10,
-        "stopLossLimit": 0.85,
-        "profitGoal": null,
-        "initialCapital": 75.32,
-        "preferredVolatility": "low"
-      },
-      "createdAt": "2026-02-10T10:00:00.000Z",
-      "updatedAt": "2026-02-10T11:30:00.000Z"
-    }
-  ]
-}
-```
-
-**Performance:**
-- Efficiently handles 1,000+ players (single database query)
-- Casino state cached in memory for instant access
-- Players fetched fresh from database each request
-- Response time: <50ms for 100 players, <100ms for 1,000 players
-
-**Error Responses:**
-- `503 Service Unavailable` - Casino state not loaded yet (server initializing)
-- `500 Internal Server Error` - Database query failed
-
-## Project Structure
-
-```
-casino-lab/
-├── src/
-│   ├── db/
-│   │   └── pool.ts         # PostgreSQL connection pool
-│   ├── state/
-│   │   └── casinoState.ts  # Casino state cache
-│   ├── app.ts              # Fastify app factory
-│   └── server.ts           # Server entrypoint
-├── test/
-│   ├── health.test.ts      # Health check tests
-│   └── state.test.ts       # Casino state tests
-├── migrations/             # Database migrations
-│   └── 1707328800000_init-schema.js
-├── dist/                   # Compiled output (generated)
-├── .env.example            # Example environment variables
-├── .pgmigraterc.json       # Migration tool config
-├── docker-compose.yml      # Local PostgreSQL setup
-├── .gitignore
-├── package.json
-├── tsconfig.json
-└── README.md
-```
-
-## Scripts Reference
-
-### Application
-- `npm run dev` - Start development server with hot-reload
-- `npm run build` - Compile TypeScript to JavaScript
-- `npm start` - Run production server
-- `npm test` - Run test suite
-
-### Database
-- `npm run db:migrate` - Run pending migrations
-- `npm run db:rollback` - Rollback last migration
+ISC

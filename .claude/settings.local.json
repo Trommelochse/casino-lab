@@ -7,7 +7,14 @@
       "Bash(curl:*)",
       "Bash(node -e:*)",
       "Bash(npm run build:*)",
-      "Bash(npx tsx --test:*)"
+      "Bash(npx tsx --test:*)",
+      "WebSearch",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(git mv:*)",
+      "Bash(for item in *)",
+      "Bash(do git mv \"$item\" ../backend/migrations/)",
+      "Bash(done)"
     ]
   }
 }

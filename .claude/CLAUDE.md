@@ -12,6 +12,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is an **Online Casino Simulator** - a client-server application modeling digital casino operations with simulated player behavior, financial volatility, and population dynamics.
 
+## Project Structure
+
+This is a monorepo containing backend and frontend workspaces:
+
+```
+casino-lab/
+├── backend/              # Node.js + Fastify simulation engine
+│   ├── src/             # Backend source code
+│   ├── test/            # Backend tests
+│   ├── migrations/      # Database migrations
+│   └── package.json     # Backend dependencies
+├── frontend/            # React monitoring dashboard
+│   ├── src/             # Frontend source code
+│   └── package.json     # Frontend dependencies
+├── .claude/             # Project documentation
+│   ├── CLAUDE.md        # This file
+│   ├── development.md   # Backend changelog
+│   ├── frontend-development.md  # Frontend changelog
+│   └── knowledge-base/  # Game math and logic specs
+├── package.json         # Workspace root configuration
+└── docker-compose.yml   # PostgreSQL database
+```
+
+**Important Paths:**
+- Backend code: `backend/src/`
+- Backend tests: `backend/test/`
+- Frontend code: `frontend/src/`
+- Database migrations: `backend/migrations/`
+
 ## Technical Stack
 
 ### Backend (Simulation Engine)
@@ -120,9 +149,8 @@ Available actions (see `.claude/knowledge-base/player-actions.md`):
 - **Retention:** After 72h inactivity (10-100 spins based on tier)
 - **Winner Bonus:** Net profit > 0 AND turnover > $2,000 (20 golden spins)
 
-### Weekly Cashback (Mondays 00:00 UTC)
+### Weekly Cashback
 - 5%-20% of net loss, scaled by loss bracket
-- Max bet $5.00 during bonus play (anti-abuse)
 
 ## MVP Features
 
@@ -164,4 +192,5 @@ When implementing any player behavior, game mechanics, or reward systems, **alwa
 
 ## Changelog
 
-- You can find past feature implementations in `.claude/development.md`
+- Backend feature implementations are tracked in `.claude/development.md`
+- Frontend feature implementations are tracked in `.claude/frontend-development.md`
