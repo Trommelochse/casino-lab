@@ -10,7 +10,8 @@
     "start": "node dist/server.js",
     "test": "tsx --test test/*.test.ts",
     "db:migrate": "node-pg-migrate up",
-    "db:rollback": "node-pg-migrate down"
+    "db:rollback": "node-pg-migrate down",
+    "db:reset": "node scripts/reset-db.js"
   },
   "keywords": [
     "casino",

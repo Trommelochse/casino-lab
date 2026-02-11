@@ -2198,3 +2198,53 @@ This implementation encompasses multiple related features:
 - Pre-calculated hourly statistics
 
 ---
+
+## Database Reset Script ✅
+**Completed:** 2026-02-11
+**Status:** Verified and working
+
+### Implementation Summary
+Created an automated database reset script that drops and recreates the `casino_dev` database, then runs all migrations in a single command. This streamlines the development workflow by eliminating manual database reset steps.
+
+### What Changed
+- **New Files:**
+  - `backend/scripts/reset-db.js` - Database reset automation script
+  
+- **Package.json Scripts:**
+  - Added `db:reset` command to backend package.json
+
+### Usage
+```bash
+# From project root or backend directory
+npm run db:reset
+```
+
+### How It Works
+1. Connects to PostgreSQL system database (`postgres`)
+2. Terminates all active connections to `casino_dev`
+3. Drops `casino_dev` database if it exists
+4. Creates fresh `casino_dev` database
+5. Runs all migrations automatically via `npm run db:migrate`
+6. Ensures `casino_state` singleton (id=1) is created
+
+### Technical Details
+- **Cross-platform:** Uses Node.js instead of shell scripts for Windows compatibility
+- **Safe execution:** Terminates connections before dropping to prevent "database in use" errors
+- **Idempotent:** Can be run multiple times without issues
+- **Migration integration:** Reuses existing `db:migrate` script via `execSync`
+- **Environment aware:** Reads `DATABASE_URL` from `.env` via dotenv
+
+### Verification Tests Passed
+✅ Basic reset (drop/create/migrate)
+✅ Schema verification (all 5 tables created: players, casino_state, sessions, game_rounds, pgmigrations)
+✅ Singleton verification (casino_state row with id=1 exists)
+✅ Idempotency (can run multiple times)
+
+### Use Cases
+- Clear test data during development
+- Fix broken migrations or schema inconsistencies
+- Start fresh when debugging database-related issues
+- Ensure clean state before integration testing
+
+---
+
