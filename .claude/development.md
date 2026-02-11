@@ -4,6 +4,85 @@ This file tracks completed features and implementation notes for the Casino Lab 
 
 ---
 
+## Backend Reorganization: Monorepo Structure ✅
+**Completed:** 2026-02-11
+**Status:** Verified and working
+
+### Implementation Summary
+Reorganized the codebase from a mixed root structure to a clean monorepo with npm workspaces. Backend code moved from root directory into `backend/` subdirectory alongside the `frontend/` workspace.
+
+### What Changed
+- **Project Structure:**
+  - Created `backend/` directory for all backend code
+  - Moved `src/`, `test/`, `migrations/` to `backend/`
+  - Moved backend config files (`package.json`, `tsconfig.json`, `.env`) to `backend/`
+  - Created root workspace `package.json` with npm workspaces configuration
+  - Updated `.gitignore` with workspace-specific patterns
+
+- **Documentation:**
+  - Updated root `README.md` with monorepo overview and workspace commands
+  - Created `backend/README.md` with detailed backend documentation
+  - Updated `.claude/CLAUDE.md` with new project structure section
+
+### Workspace Commands
+All commands run from repository root:
+
+- **Development:**
+  - `npm run dev:backend` - Start backend with hot-reload
+  - `npm run dev:frontend` - Start frontend dev server
+  - `npm run dev:all` - Start both simultaneously
+
+- **Build:**
+  - `npm run build` - Build both workspaces
+  - `npm run build:backend` - Build backend only
+  - `npm run build:frontend` - Build frontend only
+
+- **Testing & Database:**
+  - `npm test` - Run backend tests
+  - `npm run db:migrate` - Run database migrations
+  - `npm run db:rollback` - Rollback last migration
+
+### Technical Details
+- **Git History Preserved:** Used `git mv` for all file moves, preserving full commit history
+- **No Code Changes Required:** All imports use relative paths, so reorganization was purely structural
+- **Workspaces:** npm automatically manages dependencies and creates proper symlinks
+- **Build Output:** Backend builds to `backend/dist/`, frontend to `frontend/dist/`
+
+### Verification Results
+- ✅ Git history preserved (verified with `git log --follow`)
+- ✅ Backend builds successfully (`npm run build:backend`)
+- ✅ Tests pass (190/191 - one pre-existing floating-point precision issue)
+- ✅ Database migrations work (`npm run db:migrate`)
+- ✅ Workspace dependencies installed correctly
+- ✅ All documentation updated
+
+### Before/After Structure
+
+**Before:**
+```
+casino-lab/
+├── src/ (backend)
+├── test/ (backend)
+├── package.json (backend)
+├── frontend/
+└── [mixed root]
+```
+
+**After:**
+```
+casino-lab/
+├── backend/
+│   ├── src/
+│   ├── test/
+│   └── package.json
+├── frontend/
+│   ├── src/
+│   └── package.json
+└── package.json (workspace root)
+```
+
+---
+
 ## Feature F-001: Backend Project Bootstrap ✅
 **Completed:** 2026-02-07
 **Status:** Verified and working
