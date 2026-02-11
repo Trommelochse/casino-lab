@@ -3,6 +3,8 @@
  * Tracks player gaming sessions with start/end times and balance snapshots
  */
 
+import { SlotVolatility } from '../constants/archetypes.js';
+
 /**
  * Session entity with camelCase fields (domain model)
  */
@@ -13,6 +15,7 @@ export interface Session {
   endedAt: string | null;
   initialBalance: string;
   finalBalance: string | null;
+  slotVolatility: SlotVolatility | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -27,6 +30,7 @@ export interface SessionRow {
   ended_at: string | Date | null;
   initial_balance: string;
   final_balance: string | null;
+  slot_volatility: 'low' | 'medium' | 'high' | null;
   created_at: string | Date;
   updated_at: string | Date;
 }
@@ -62,6 +66,7 @@ export function mapSessionRow(row: SessionRow): Session {
     endedAt: toISOStringOrNull(row.ended_at),
     initialBalance: row.initial_balance,
     finalBalance: row.final_balance,
+    slotVolatility: row.slot_volatility,
     createdAt: toISOString(row.created_at),
     updatedAt: toISOString(row.updated_at),
   };

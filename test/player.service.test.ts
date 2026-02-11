@@ -1,7 +1,12 @@
 import 'dotenv/config';
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { generatePlayerDNA, createPlayer } from '../src/services/playerService.js';
+import {
+  generatePlayerDNA,
+  createPlayer,
+  getPlayersByStatus,
+  updatePlayerStatus,
+} from '../src/services/playerService.js';
 import { ARCHETYPE_TEMPLATES } from '../src/constants/archetypes.js';
 import { pool } from '../src/db/pool.js';
 
@@ -228,6 +233,100 @@ describe('Player Service', () => {
 
       // Wallet balances should match
       assert.equal(player1.walletBalance, player2.walletBalance);
+    });
+  });
+
+  describe('getPlayersByStatus', () => {
+    it('should return only Idle players', async () => {
+      const p1 = await createPlayer({ archetype: 'Recreational' });
+      const p2 = await createPlayer({ archetype: 'VIP' });
+      const p3 = await createPlayer({ archetype: 'Bonus Hunter' });
+
+      // All players start as Idle
+      const idlePlayers = await getPlayersByStatus('Idle');
+
+      // Should have at least 3 (our test players)
+      assert.ok(idlePlayers.length >= 3);
+      assert.ok(idlePlayers.every((p) => p.status === 'Idle'));
+
+      // Verify our players are in the list
+      const playerIds = idlePlayers.map((p) => p.id);
+      assert.ok(playerIds.includes(p1.id));
+      assert.ok(playerIds.includes(p2.id));
+      assert.ok(playerIds.includes(p3.id));
+    });
+
+    it('should return empty array when no players match status', async () => {
+      // Create a player (starts as Idle)
+      await createPlayer({ archetype: 'Recreational' });
+
+      // Query for Active players
+      const activePlayers = await getPlayersByStatus('Active');
+
+      // Should be empty (no Active players exist yet)
+      assert.equal(activePlayers.length, 0);
+    });
+
+    it('should filter by status after status update', async () => {
+      const player = await createPlayer({ archetype: 'Recreational' });
+
+      // Update to Active
+      await updatePlayerStatus(player.id, 'Active');
+
+      // Query for Active players
+      const activePlayers = await getPlayersByStatus('Active');
+
+      // Should include our player
+      assert.ok(activePlayers.some((p) => p.id === player.id));
+      assert.ok(activePlayers.every((p) => p.status === 'Active'));
+    });
+  });
+
+  describe('updatePlayerStatus', () => {
+    it('should update player status to Active', async () => {
+      const player = await createPlayer({ archetype: 'Recreational' });
+
+      await updatePlayerStatus(player.id, 'Active');
+
+      // Verify update
+      const result = await pool.query(
+        'SELECT status FROM players WHERE id = $1',
+        [player.id]
+      );
+
+      assert.equal(result.rows[0].status, 'Active');
+    });
+
+    it('should update player status to Broke', async () => {
+      const player = await createPlayer({ archetype: 'VIP' });
+
+      await updatePlayerStatus(player.id, 'Broke');
+
+      // Verify update
+      const result = await pool.query(
+        'SELECT status FROM players WHERE id = $1',
+        [player.id]
+      );
+
+      assert.equal(result.rows[0].status, 'Broke');
+    });
+
+    it('should update updated_at timestamp', async () => {
+      const player = await createPlayer({ archetype: 'VIP' });
+      const originalUpdatedAt = player.updatedAt;
+
+      // Wait 10ms to ensure timestamp difference
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      await updatePlayerStatus(player.id, 'Broke');
+
+      const result = await pool.query(
+        'SELECT updated_at FROM players WHERE id = $1',
+        [player.id]
+      );
+
+      const newUpdatedAt = result.rows[0].updated_at.toISOString();
+      assert.notEqual(newUpdatedAt, originalUpdatedAt);
     });
   });
 });

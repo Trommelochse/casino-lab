@@ -13,6 +13,7 @@ describe('Session Model', () => {
         ended_at: '2026-02-07T11:30:00.000Z',
         initial_balance: '1000.00',
         final_balance: '1250.50',
+        slot_volatility: 'medium',
         created_at: '2026-02-07T10:00:00.000Z',
         updated_at: '2026-02-07T11:30:00.000Z',
       };
@@ -25,6 +26,7 @@ describe('Session Model', () => {
       assert.equal(session.endedAt, '2026-02-07T11:30:00.000Z');
       assert.equal(session.initialBalance, '1000.00');
       assert.equal(session.finalBalance, '1250.50');
+      assert.equal(session.slotVolatility, 'medium');
       assert.equal(session.createdAt, '2026-02-07T10:00:00.000Z');
       assert.equal(session.updatedAt, '2026-02-07T11:30:00.000Z');
     });
@@ -37,6 +39,7 @@ describe('Session Model', () => {
         ended_at: null,
         initial_balance: '1000.00',
         final_balance: null,
+        slot_volatility: 'low',
         created_at: '2026-02-07T10:00:00.000Z',
         updated_at: '2026-02-07T10:00:00.000Z',
       };
@@ -55,6 +58,7 @@ describe('Session Model', () => {
         ended_at: '2026-02-07T11:00:00.000Z',
         initial_balance: '12345.67890',
         final_balance: '9876.54321',
+        slot_volatility: 'high',
         created_at: '2026-02-07T10:00:00.000Z',
         updated_at: '2026-02-07T11:00:00.000Z',
       };
@@ -79,6 +83,7 @@ describe('Session Model', () => {
         ended_at: endedDate,
         initial_balance: '1000.00',
         final_balance: '1100.00',
+        slot_volatility: 'low',
         created_at: createdDate,
         updated_at: updatedDate,
       };
@@ -99,6 +104,7 @@ describe('Session Model', () => {
         ended_at: '2026-02-07T11:20:45.456Z',
         initial_balance: '1000.00',
         final_balance: '1050.00',
+        slot_volatility: 'medium',
         created_at: '2026-02-07T10:15:30.123Z',
         updated_at: '2026-02-07T11:20:45.456Z',
       };
@@ -120,6 +126,7 @@ describe('Session Model', () => {
         ended_at: '2026-02-07T10:30:00.000Z',
         initial_balance: '100.00',
         final_balance: '0',
+        slot_volatility: 'high',
         created_at: '2026-02-07T10:00:00.000Z',
         updated_at: '2026-02-07T10:30:00.000Z',
       };
@@ -128,6 +135,42 @@ describe('Session Model', () => {
 
       assert.equal(session.initialBalance, '100.00');
       assert.equal(session.finalBalance, '0');
+    });
+
+    it('should map slotVolatility field correctly', () => {
+      const row: SessionRow = {
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        player_id: '987fcdeb-51a3-4def-8e6f-ec77296e9e88',
+        started_at: '2026-02-10T10:00:00.000Z',
+        ended_at: null,
+        initial_balance: '100.00',
+        final_balance: null,
+        slot_volatility: 'medium',
+        created_at: '2026-02-10T10:00:00.000Z',
+        updated_at: '2026-02-10T10:00:00.000Z',
+      };
+
+      const session = mapSessionRow(row);
+
+      assert.equal(session.slotVolatility, 'medium');
+    });
+
+    it('should handle null slotVolatility for legacy sessions', () => {
+      const row: SessionRow = {
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        player_id: '987fcdeb-51a3-4def-8e6f-ec77296e9e88',
+        started_at: '2026-02-10T10:00:00.000Z',
+        ended_at: null,
+        initial_balance: '100.00',
+        final_balance: null,
+        slot_volatility: null,
+        created_at: '2026-02-10T10:00:00.000Z',
+        updated_at: '2026-02-10T10:00:00.000Z',
+      };
+
+      const session = mapSessionRow(row);
+
+      assert.equal(session.slotVolatility, null);
     });
   });
 });

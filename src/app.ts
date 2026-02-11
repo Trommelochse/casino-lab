@@ -2,6 +2,7 @@ import Fastify, { FastifyServerOptions } from 'fastify';
 import { getCasinoState } from './state/casinoState.js';
 import { createPlayer, getAllPlayers } from './services/playerService.js';
 import { isArchetypeName } from './constants/archetypes.js';
+import { simulateHourTick } from './simulation/simulationOrchestrator.js';
 
 export function buildApp(opts: FastifyServerOptions = {}) {
   const app = Fastify({
@@ -80,6 +81,30 @@ export function buildApp(opts: FastifyServerOptions = {}) {
       app.log.error(error);
       return reply.status(500).send({
         error: 'Internal Server Error',
+        message: error.message,
+      });
+    }
+  });
+
+  // Simulate hour tick endpoint
+  app.post('/simulate/hour', async (_request, reply) => {
+    try {
+      app.log.info('Starting hour simulation...');
+
+      const summary = await simulateHourTick();
+
+      app.log.info({
+        playersProcessed: summary.playersProcessed,
+        totalSpins: summary.totalSpins,
+        houseRevenue: summary.houseRevenue
+      }, 'Hour simulation completed');
+
+      return reply.status(200).send(summary);
+    } catch (err) {
+      const error = err as Error;
+      app.log.error(error, 'Hour simulation failed');
+      return reply.status(500).send({
+        error: 'Simulation Failed',
         message: error.message,
       });
     }

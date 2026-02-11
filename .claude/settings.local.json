@@ -4,7 +4,10 @@
       "Bash(test:*)",
       "Bash(npm test:*)",
       "Bash(docker-compose ps:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(node -e:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx tsx --test:*)"
     ]
   }
 }

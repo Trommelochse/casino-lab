@@ -9,7 +9,12 @@ import {
   ArchetypeName,
   SlotVolatility,
 } from '../constants/archetypes.js';
-import { Player, PlayerRow, mapPlayerRow } from '../models/player.js';
+import {
+  Player,
+  PlayerRow,
+  PlayerStatus,
+  mapPlayerRow,
+} from '../models/player.js';
 
 /**
  * Player DNA traits
@@ -170,4 +175,43 @@ export async function getAllPlayers(): Promise<Player[]> {
 
   const result = await pool.query<PlayerRow>(query);
   return result.rows.map(mapPlayerRow);
+}
+
+/**
+ * Get all players with a specific status
+ * @param status - Player status to filter by
+ * @returns Array of players matching the status
+ */
+export async function getPlayersByStatus(
+  status: PlayerStatus
+): Promise<Player[]> {
+  const query = `
+    SELECT
+      id, archetype, status, wallet_balance, lifetime_pl,
+      remaining_capital, dna_traits, created_at, updated_at
+    FROM players
+    WHERE status = $1
+    ORDER BY created_at ASC
+  `;
+
+  const result = await pool.query<PlayerRow>(query, [status]);
+  return result.rows.map(mapPlayerRow);
+}
+
+/**
+ * Update a player's status
+ * @param playerId - Player UUID
+ * @param newStatus - New status to set
+ */
+export async function updatePlayerStatus(
+  playerId: string,
+  newStatus: PlayerStatus
+): Promise<void> {
+  const query = `
+    UPDATE players
+    SET status = $1, updated_at = NOW()
+    WHERE id = $2
+  `;
+
+  await pool.query(query, [newStatus, playerId]);
 }
