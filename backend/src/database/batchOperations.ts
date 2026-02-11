@@ -3,9 +3,9 @@
  * Optimized for high-volume inserts and updates (50k+ game rounds per hour tick)
  */
 
-import { pool } from '../db/pool'
-import { GameRound } from '../models/gameRound'
-import { PlayerStatus } from '../models/player'
+import { pool } from '../db/pool.js'
+import { GameRound } from '../models/gameRound.js'
+import { PlayerStatus } from '../models/player.js'
 
 /**
  * Player update payload for batch operations

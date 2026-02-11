@@ -7,7 +7,6 @@ export function useCasinoState() {
   return useQuery<CasinoState>({
     queryKey: casinoKeys.state(),
     queryFn: fetchCasinoState,
-    refetchInterval: 5000, // Poll every 5 seconds
-    refetchIntervalInBackground: true,
+    // No polling - UI updates on user actions only
   })
 }

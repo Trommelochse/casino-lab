@@ -3,6 +3,7 @@ import { Session, SessionRow, mapSessionRow } from '../models/session.js';
 import { Player } from '../models/player.js';
 import { PlayerDNA } from './playerService.js';
 import { SlotVolatility } from '../constants/archetypes.js';
+import { createRng } from './rng.js';
 
 /**
  * Parameters for creating a session
@@ -46,21 +47,47 @@ export async function createSession(
 }
 
 /**
+ * Get the number of sessions a player has participated in
+ * @param playerId - Player UUID
+ * @returns Number of sessions (completed or active)
+ */
+async function getPlayerSessionCount(playerId: string): Promise<number> {
+  const result = await pool.query(
+    'SELECT COUNT(*) FROM sessions WHERE player_id = $1',
+    [playerId]
+  );
+  return parseInt(result.rows[0].count, 10);
+}
+
+/**
  * Determine if a player should start a session based on DNA traits and archetype
  * @param player - Player entity with DNA traits
+ * @param hourSeed - Seed for deterministic RNG (combines hour seed with player ID)
  * @returns true if session should be triggered, false otherwise
  */
-export function shouldPlayerStartSession(player: Player): boolean {
+export async function shouldPlayerStartSession(
+  player: Player,
+  hourSeed: string
+): Promise<boolean> {
   // Parse DNA traits
   const dna = player.dnaTraits as PlayerDNA;
+
+  // Check if player has ever had a session
+  const sessionCount = await getPlayerSessionCount(player.id);
+
+  // Newly generated players always play first session
+  if (sessionCount === 0) {
+    return true;
+  }
 
   // Bonus Hunters with high promo dependency don't play without bonuses
   if (player.archetype === 'Bonus Hunter' && dna.promoDependency >= 0.9) {
     return false; // No bonuses available in MVP
   }
 
-  // All other players: roll RNG against basePReturn
-  return Math.random() < dna.basePReturn;
+  // Use seeded RNG: combines hour seed with player ID for consistency
+  const rng = createRng(`${hourSeed}-trigger-${player.id}`);
+  return rng.random() < dna.basePReturn;
 }
 
 /**

@@ -1,7 +1,11 @@
 import { useCasinoState } from './hooks/useCasinoState'
+import { useCreatePlayer } from './hooks/useCreatePlayer'
+import { useSimulateHour } from './hooks/useSimulateHour'
 
 export default function App() {
-  const { data, isPending, isError, error, isFetching } = useCasinoState()
+  const { data, isPending, isError, error } = useCasinoState()
+  const { mutate: createPlayerMutation, isPending: isCreatingPlayer } = useCreatePlayer()
+  const { mutate: simulateHourMutation, isPending: isSimulating } = useSimulateHour()
 
   // Initial loading state
   if (isPending) {
@@ -29,16 +33,30 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header with refresh indicator */}
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Casino Lab Dashboard
-          </h1>
-          {isFetching && (
-            <span className="text-sm text-blue-600 animate-pulse">
-              Refreshing...
-            </span>
-          )}
+        {/* Header */}
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">
+          Casino Lab Dashboard
+        </h1>
+
+        {/* Controls */}
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4">Controls</h2>
+          <div className="flex gap-4">
+            <button
+              onClick={() => createPlayerMutation('Recreational')}
+              disabled={isCreatingPlayer}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {isCreatingPlayer ? 'Creating...' : 'Create Player'}
+            </button>
+            <button
+              onClick={() => simulateHourMutation()}
+              disabled={isSimulating}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {isSimulating ? 'Simulating...' : 'Simulate 1 Hour'}
+            </button>
+          </div>
         </div>
 
         {/* Casino Totals */}

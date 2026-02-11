@@ -29,6 +29,7 @@ export interface PlayerUpdate {
 // Simulation summary returned by API
 export interface SimulationSummary {
   message: string
+  sessionsTriggered: number
   playersProcessed: number
   totalSpins: number
   houseRevenue: string

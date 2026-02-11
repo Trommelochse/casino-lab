@@ -4,7 +4,7 @@
  */
 
 import { pool } from '../db/pool.js'
-import { getPlayersByStatus } from '../services/playerService.js'
+import { getPlayersByStatus, updatePlayerStatus } from '../services/playerService.js'
 import { WorkerPool, calculateWorkerCount } from '../workers/workerPool.js'
 import {
   batchInsertGameRounds,
@@ -13,26 +13,18 @@ import {
   batchUpdateSessions,
   PlayerUpdate
 } from '../database/batchOperations.js'
+import {
+  shouldPlayerStartSession,
+  selectVolatilityForSession,
+  createSession
+} from '../services/sessionService.js'
 import { Session } from '../models/session.js'
 import { Player } from '../models/player.js'
 import { PlayerDNA } from '../services/playerService.js'
 import { getConfiguredSeed } from '../services/rng.js'
 import { GameRound } from '../models/gameRound.js'
-
-/**
- * Summary returned by hour simulation
- */
-export interface SimulationSummary {
-  message: string
-  playersProcessed: number
-  totalSpins: number
-  houseRevenue: string
-  playerStatuses?: {
-    active: number
-    idle: number
-    broke: number
-  }
-}
+import { SimulationSummary } from './types.js'
+import { refreshCasinoState } from '../state/casinoState.js'
 
 /**
  * Get or create active session for a player
@@ -92,91 +84,130 @@ async function getOrCreateActiveSession(
  * Execute one hour tick of simulation
  *
  * Flow:
- * 1. Get all Active players
- * 2. Get/create sessions for each player
- * 3. Distribute players to worker pool
- * 4. Execute simulation in parallel
- * 5. Aggregate results
- * 6. Batch update database (in transaction)
- * 7. Update casino state
- * 8. Return summary
+ * 1. Session Trigger Phase: Evaluate Idle players and create sessions
+ * 2. Get all Active players (includes newly triggered)
+ * 3. Get/create sessions for each player
+ * 4. Distribute players to worker pool
+ * 5. Execute simulation in parallel
+ * 6. Aggregate results
+ * 7. Batch update database (in transaction)
+ * 8. Update casino state
+ * 9. Return summary
  *
  * @returns Summary of simulation results
  */
 export async function simulateHourTick(): Promise<SimulationSummary> {
-  // 1. Get all Active players
-  const activePlayers = await getPlayersByStatus('Active')
-
-  if (activePlayers.length === 0) {
-    return {
-      message: 'No active players',
-      playersProcessed: 0,
-      totalSpins: 0,
-      houseRevenue: '0.00',
-      playerStatuses: {
-        active: 0,
-        idle: 0,
-        broke: 0
-      }
-    }
-  }
-
-  // 2. Get/create sessions for each player
-  const sessions: Session[] = []
-  for (const player of activePlayers) {
-    const dna = player.dnaTraits as PlayerDNA
-    const session = await getOrCreateActiveSession(
-      player.id,
-      player.walletBalance,
-      dna.preferredVolatility
-    )
-    sessions.push(session)
-  }
-
-  // 3. Initialize worker pool
-  const workerCount = calculateWorkerCount(activePlayers.length)
-  const workerPool = new WorkerPool(workerCount)
+  // Start transaction for entire hour tick
+  await pool.query('BEGIN')
 
   try {
-    // 4. Execute simulation in workers
-    const globalSeed = getConfiguredSeed() || 'default-seed'
-    const workerResults = await workerPool.executeSimulation(
-      activePlayers,
-      sessions,
-      globalSeed
-    )
+    // ===== PHASE 1: SESSION TRIGGERING =====
+    const idlePlayers = await getPlayersByStatus('Idle')
+    const triggeredPlayerIds: string[] = []
 
-    // 5. Aggregate results from all workers
-    const allRounds: GameRound[] = []
-    const playerUpdates: PlayerUpdate[] = []
-    let totalHouseRevenue = 0
+    // Generate seed for deterministic session triggers
+    const hourSeed = `hour-${Date.now()}`
 
-    for (const workerResult of workerResults) {
-      for (const playerResult of workerResult.results) {
-        // Collect game rounds
-        allRounds.push(...playerResult.rounds)
+    for (const player of idlePlayers) {
+      try {
+        // Check if player should start session
+        if (await shouldPlayerStartSession(player, hourSeed)) {
+          // Select slot volatility based on player DNA
+          const volatility = selectVolatilityForSession(player)
 
-        // Collect player updates
-        playerUpdates.push({
-          id: playerResult.playerId,
-          balance: playerResult.finalBalance,
-          status: playerResult.finalStatus
-        })
+          // Create session in database
+          await createSession({
+            playerId: player.id,
+            initialBalance: player.walletBalance,
+            slotVolatility: volatility
+          })
 
-        // Calculate house revenue
-        // House revenue = sum of all bets - sum of all payouts
-        for (const round of playerResult.rounds) {
-          const betAmount = parseFloat(round.betAmount)
-          const payout = parseFloat(round.payout)
-          totalHouseRevenue += (betAmount - payout)
+          // Update player status to Active
+          await updatePlayerStatus(player.id, 'Active')
+          triggeredPlayerIds.push(player.id)
+        }
+      } catch (err) {
+        // Log error but don't halt simulation
+        console.error(`Failed to trigger session for player ${player.id}:`, err)
+        // Player stays Idle, will retry next hour
+      }
+    }
+
+    console.log(`Session trigger phase: ${triggeredPlayerIds.length}/${idlePlayers.length} players activated`)
+
+    // ===== PHASE 2: MICRO-BET LOOPS =====
+    // 1. Get all Active players (includes newly triggered)
+    const activePlayers = await getPlayersByStatus('Active')
+
+    if (activePlayers.length === 0) {
+      await pool.query('COMMIT')
+      return {
+        message: 'No active players',
+        sessionsTriggered: triggeredPlayerIds.length,
+        playersProcessed: 0,
+        totalSpins: 0,
+        houseRevenue: '0.00',
+        playerStatuses: {
+          active: 0,
+          idle: triggeredPlayerIds.length,
+          broke: 0
         }
       }
     }
 
-    // 6. Database operations in transaction
-    await pool.query('BEGIN')
+    // 2. Get/create sessions for each player
+    const sessions: Session[] = []
+    for (const player of activePlayers) {
+      const dna = player.dnaTraits as PlayerDNA
+      const session = await getOrCreateActiveSession(
+        player.id,
+        player.walletBalance,
+        dna.preferredVolatility
+      )
+      sessions.push(session)
+    }
+
+    // 3. Initialize worker pool
+    const workerCount = calculateWorkerCount(activePlayers.length)
+    const workerPool = new WorkerPool(workerCount)
 
     try {
+      // 4. Execute simulation in workers
+      const globalSeed = getConfiguredSeed() || 'default-seed'
+      const workerResults = await workerPool.executeSimulation(
+        activePlayers,
+        sessions,
+        globalSeed
+      )
+
+      // 5. Aggregate results from all workers
+      const allRounds: GameRound[] = []
+      const playerUpdates: PlayerUpdate[] = []
+      let totalHouseRevenue = 0
+
+      for (const workerResult of workerResults) {
+        for (const playerResult of workerResult.results) {
+          // Collect game rounds
+          allRounds.push(...playerResult.rounds)
+
+          // Collect player updates
+          playerUpdates.push({
+            id: playerResult.playerId,
+            balance: playerResult.finalBalance,
+            status: playerResult.finalStatus
+          })
+
+          // Calculate house revenue
+          // House revenue = sum of all bets - sum of all payouts
+          for (const round of playerResult.rounds) {
+            const betAmount = parseFloat(round.betAmount)
+            const payout = parseFloat(round.payout)
+            totalHouseRevenue += (betAmount - payout)
+          }
+        }
+      }
+
+      // 6. Database operations (already in transaction from PHASE 1)
       // Insert all game rounds
       await batchInsertGameRounds(allRounds)
 
@@ -192,26 +223,32 @@ export async function simulateHourTick(): Promise<SimulationSummary> {
       const activeCount = playerUpdates.filter(u => u.status === 'Active').length
       await updateCasinoState(totalHouseRevenue.toFixed(2), activeCount)
 
+      // Commit transaction
       await pool.query('COMMIT')
-    } catch (err) {
-      await pool.query('ROLLBACK')
-      throw err
-    }
 
-    // 7. Return summary
-    return {
-      message: 'Hour simulation completed',
-      playersProcessed: activePlayers.length,
-      totalSpins: allRounds.length,
-      houseRevenue: totalHouseRevenue.toFixed(2),
-      playerStatuses: {
-        active: playerUpdates.filter(u => u.status === 'Active').length,
-        idle: playerUpdates.filter(u => u.status === 'Idle').length,
-        broke: playerUpdates.filter(u => u.status === 'Broke').length
+      // Refresh in-memory cache after transaction commits
+      await refreshCasinoState()
+
+      // 7. Return summary
+      return {
+        message: 'Hour simulation completed',
+        sessionsTriggered: triggeredPlayerIds.length,
+        playersProcessed: activePlayers.length,
+        totalSpins: allRounds.length,
+        houseRevenue: totalHouseRevenue.toFixed(2),
+        playerStatuses: {
+          active: playerUpdates.filter(u => u.status === 'Active').length,
+          idle: playerUpdates.filter(u => u.status === 'Idle').length,
+          broke: playerUpdates.filter(u => u.status === 'Broke').length
+        }
       }
+    } finally {
+      // 8. Cleanup - always shutdown worker pool
+      await workerPool.shutdown()
     }
-  } finally {
-    // 8. Cleanup - always shutdown worker pool
-    await workerPool.shutdown()
+  } catch (error) {
+    // Rollback entire hour tick on error
+    await pool.query('ROLLBACK')
+    throw error
   }
 }
