@@ -1,4 +1,5 @@
 import Fastify, { FastifyServerOptions } from 'fastify';
+import cors from '@fastify/cors';
 import { getCasinoState } from './state/casinoState.js';
 import { createPlayer, getAllPlayers } from './services/playerService.js';
 import { isArchetypeName } from './constants/archetypes.js';
@@ -10,6 +11,12 @@ export function buildApp(opts: FastifyServerOptions = {}) {
       level: process.env.LOG_LEVEL || 'info',
     },
     ...opts,
+  });
+
+  // Register CORS plugin for frontend access
+  app.register(cors, {
+    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    credentials: true,
   });
 
   // Health check route
