@@ -18,17 +18,21 @@ export interface PlayerUpdate {
 
 /**
  * Batch insert game rounds using multi-row INSERT statements
- * Handles PostgreSQL parameter limit (~1000) by batching into chunks of 140 rounds
+ * Handles PostgreSQL parameter limit (~1000) by batching into chunks of 120 rounds
  *
  * @param rounds - Array of game rounds to insert
+ * @param simulationHour - Current simulation hour
  * @returns Promise that resolves when all rounds are inserted
  */
-export async function batchInsertGameRounds(rounds: GameRound[]): Promise<void> {
+export async function batchInsertGameRounds(
+  rounds: GameRound[],
+  simulationHour: bigint
+): Promise<void> {
   if (rounds.length === 0) return
 
   // PostgreSQL limit: ~1000 parameters per query
-  // 7 params per round → batch size = 140 rounds (7 * 140 = 980)
-  const BATCH_SIZE = 140
+  // 8 params per round → batch size = 120 rounds (8 * 120 = 960)
+  const BATCH_SIZE = 120
 
   for (let i = 0; i < rounds.length; i += BATCH_SIZE) {
     const batch = rounds.slice(i, i + BATCH_SIZE)
@@ -38,9 +42,9 @@ export async function batchInsertGameRounds(rounds: GameRound[]): Promise<void> 
     const placeholders: string[] = []
 
     batch.forEach((round, idx) => {
-      const base = idx * 7
+      const base = idx * 8
       placeholders.push(
-        `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7})`
+        `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8})`
       )
       values.push(
         round.id,
@@ -49,14 +53,15 @@ export async function batchInsertGameRounds(rounds: GameRound[]): Promise<void> 
         round.multiplier,
         round.payout,
         round.resultingBalance,
-        round.occurredAt
+        round.occurredAt,
+        simulationHour.toString()
       )
     })
 
     const query = `
       INSERT INTO game_rounds (
         id, session_id, bet_amount, multiplier, payout,
-        resulting_balance, occurred_at
+        resulting_balance, occurred_at, simulation_hour
       )
       VALUES ${placeholders.join(', ')}
     `

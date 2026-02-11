@@ -20,7 +20,7 @@ initSlotRegistry(registry)
  * Runs in worker thread context
  */
 function processBatch(task: WorkerTask): WorkerResult | WorkerError {
-  const { players, sessions, globalSeed, workerIndex } = task
+  const { players, sessions, globalSeed, simulationTimestamp, workerIndex } = task
 
   try {
     const results: PlayerSimulationResult[] = []
@@ -50,7 +50,8 @@ function processBatch(task: WorkerTask): WorkerResult | WorkerError {
           player,
           session,
           spinsPerHour,
-          rng: playerRng
+          rng: playerRng,
+          simulationTimestamp
         })
 
         // Store result

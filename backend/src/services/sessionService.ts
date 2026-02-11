@@ -12,6 +12,8 @@ export interface CreateSessionParams {
   playerId: string;
   initialBalance: string;
   slotVolatility: SlotVolatility;
+  simulationHour: bigint;
+  simulationTimestamp: string;
 }
 
 /**
@@ -22,20 +24,28 @@ export interface CreateSessionParams {
 export async function createSession(
   params: CreateSessionParams
 ): Promise<Session> {
-  const { playerId, initialBalance, slotVolatility } = params;
+  const { playerId, initialBalance, slotVolatility, simulationHour, simulationTimestamp } = params;
 
   const query = `
     INSERT INTO sessions (
       player_id,
       started_at,
       initial_balance,
-      slot_volatility
+      slot_volatility,
+      simulation_hour,
+      simulation_timestamp
     )
-    VALUES ($1, NOW(), $2, $3)
+    VALUES ($1, NOW(), $2, $3, $4, $5)
     RETURNING *
   `;
 
-  const values = [playerId, initialBalance, slotVolatility];
+  const values = [
+    playerId,
+    initialBalance,
+    slotVolatility,
+    simulationHour.toString(),
+    simulationTimestamp
+  ];
 
   const result = await pool.query<SessionRow>(query, values);
 
@@ -62,12 +72,14 @@ async function getPlayerSessionCount(playerId: string): Promise<number> {
 /**
  * Determine if a player should start a session based on DNA traits and archetype
  * @param player - Player entity with DNA traits
- * @param hourSeed - Seed for deterministic RNG (combines hour seed with player ID)
+ * @param hourSeed - Optional seed for deterministic RNG (combines hour seed with player ID)
+ *                   If provided: deterministic mode (for reproducible simulations)
+ *                   If omitted: probabilistic mode (for tests and real-world randomness)
  * @returns true if session should be triggered, false otherwise
  */
 export async function shouldPlayerStartSession(
   player: Player,
-  hourSeed: string
+  hourSeed?: string
 ): Promise<boolean> {
   // Parse DNA traits
   const dna = player.dnaTraits as PlayerDNA;
@@ -85,9 +97,14 @@ export async function shouldPlayerStartSession(
     return false; // No bonuses available in MVP
   }
 
-  // Use seeded RNG: combines hour seed with player ID for consistency
-  const rng = createRng(`${hourSeed}-trigger-${player.id}`);
-  return rng.random() < dna.basePReturn;
+  // Support both deterministic and probabilistic modes:
+  // - With hourSeed: deterministic RNG for reproducible simulations
+  // - Without hourSeed: Math.random() for tests and random behavior
+  const randomValue = hourSeed
+    ? createRng(`${hourSeed}-trigger-${player.id}`).random()
+    : Math.random();
+
+  return randomValue < dna.basePReturn;
 }
 
 /**

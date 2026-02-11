@@ -1,12 +1,37 @@
 import 'dotenv/config'
-import { describe, it, before, after } from 'node:test'
+import { describe, it, before, after, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { pool } from '../src/db/pool.js'
 import { createPlayer } from '../src/services/playerService.js'
 import { simulateHourTick } from '../src/simulation/simulationOrchestrator.js'
 import { buildApp } from '../src/app.js'
+import { loadWorldState } from '../src/state/worldState.js'
 
 describe('Simulation Orchestrator', () => {
+  // Initialize world state before tests
+  before(async () => {
+    await loadWorldState()
+  })
+
+  // Clean up test players after each test to prevent interference
+  afterEach(async () => {
+    await pool.query('DELETE FROM game_rounds WHERE session_id IN (SELECT id FROM sessions WHERE player_id IN (SELECT id FROM players WHERE archetype IN ($1, $2, $3)))', [
+      'Recreational',
+      'VIP',
+      'Bonus Hunter'
+    ])
+    await pool.query('DELETE FROM sessions WHERE player_id IN (SELECT id FROM players WHERE archetype IN ($1, $2, $3))', [
+      'Recreational',
+      'VIP',
+      'Bonus Hunter'
+    ])
+    await pool.query('DELETE FROM players WHERE archetype IN ($1, $2, $3)', [
+      'Recreational',
+      'VIP',
+      'Bonus Hunter'
+    ])
+  })
+
   // Clean up test data
   after(async () => {
     await pool.query('DELETE FROM game_rounds WHERE session_id IN (SELECT id FROM sessions WHERE player_id IN (SELECT id FROM players WHERE archetype IN ($1, $2, $3)))', [

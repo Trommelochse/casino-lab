@@ -9,6 +9,7 @@ export interface MicroBetLoopInput {
   session: Session
   spinsPerHour: number
   rng: Rng
+  simulationTimestamp: string
 }
 
 // Micro-bet loop result
@@ -29,6 +30,8 @@ export interface PlayerUpdate {
 // Simulation summary returned by API
 export interface SimulationSummary {
   message: string
+  currentHour?: string // Simulation hour that was just executed
+  simulationTime?: string // ISO timestamp of simulation hour
   sessionsTriggered: number
   playersProcessed: number
   totalSpins: number

@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { buildApp } from './app.js';
 import { loadCasinoState } from './state/casinoState.js';
+import { loadWorldState } from './state/worldState.js';
 import { closePool } from './db/pool.js';
 import slotModels from './slots/slotModels.config.js';
 import { buildSlotRegistry, initSlotRegistry } from './slots/slotRegistry.js';
@@ -35,6 +36,11 @@ const start = async () => {
     app.log.info('Loading casino state from database...');
     await loadCasinoState();
     app.log.info('Casino state loaded successfully');
+
+    // Load world state from database
+    app.log.info('Loading world state from database...');
+    await loadWorldState();
+    app.log.info('World state loaded successfully');
 
     await app.listen({ port: PORT, host: HOST });
     app.log.info(`Server listening on ${HOST}:${PORT}`);

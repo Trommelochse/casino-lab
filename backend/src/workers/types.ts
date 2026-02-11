@@ -17,6 +17,8 @@ export interface WorkerTask {
   players: Player[]
   sessions: Session[]
   globalSeed: string
+  simulationHour: bigint
+  simulationTimestamp: string
   workerIndex: number
 }
 

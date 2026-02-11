@@ -29,7 +29,7 @@ import {
  * @returns Final balance, status, rounds, and exit reason
  */
 export function executeMicroBetLoop(input: MicroBetLoopInput): MicroBetLoopResult {
-  const { player, session, spinsPerHour, rng } = input
+  const { player, session, spinsPerHour, rng, simulationTimestamp } = input
   const dna = player.dnaTraits as PlayerDNA
   const archetype = player.archetype as ArchetypeName
 
@@ -88,7 +88,8 @@ export function executeMicroBetLoop(input: MicroBetLoopInput): MicroBetLoopResul
       slotName,
       wager: actualBet.toFixed(2),
       startingBalance: currentBalance.toFixed(2),
-      rng
+      rng,
+      simulationTimestamp
     })
 
     // Update balance immediately (in-memory mutation)

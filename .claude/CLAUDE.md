@@ -6,7 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Never implement features that I did not ask for.
 - Only move forward in small incremental steps.
 - Ask when making critical decisions.
-- After you have successfully implemented and verified a feature add it to `.claude/development.md`.
+- Always make sure you kill all instances of dev servers when you quit.
+- When adding features:
+  - Always remember to write tests first (TDD approach)
+  - Update relevant documentation
+  - Log changes in ../.claude/development.md
+  - Ensure all tests pass before committing
 
 ## Project Overview
 
@@ -77,24 +82,7 @@ The simulation operates on discrete **hour ticks**. When "Simulate 1 hour" is tr
 
 ## Game Mathematics
 
-All slot models are defined in `.claude/knowledge-base/slot-models.md`. Critical parameters:
-
-### Low Volatility ("The Steady Farmer")
-- Hit frequency: ~28.5%, RTP: ~96%
-- Max win: 500x, frequent small wins (0.50x-2.00x)
-- Use probability table for precise RNG mapping
-
-### Medium Volatility ("The Golden Temple")
-- Hit frequency: ~22.0%, RTP: ~96%
-- Max win: 2,500x, balanced risk/reward
-- Occasional wins up to 100x-300x
-
-### High Volatility ("The Dragon's Hoard")
-- Hit frequency: ~14.5%, RTP: ~96%
-- Max win: 10,000x, long dry spells with rare massive wins
-- Requires larger bankrolls to sustain
-
-**Implementation Note:** Use weighted probability tables exactly as specified. Each row defines a probability bracket - compare RNG float against cumulative probabilities to select the win multiplier.
+All slot models are defined in `.claude/knowledge-base/slot-models.md`.
 
 ## Player Behavior System
 

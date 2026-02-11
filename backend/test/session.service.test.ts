@@ -29,10 +29,20 @@ describe('Session Service', () => {
         seed: 'test-bonus-hunter',
       });
 
+      // Create a session so player is no longer "newly generated"
+      await createSession({
+        playerId: player.id,
+        initialBalance: player.walletBalance,
+        slotVolatility: 'medium',
+        simulationHour: BigInt(0),
+        simulationTimestamp: new Date().toISOString()
+      });
+
       // Run multiple times to verify consistent behavior
-      const results = Array.from({ length: 10 }, () =>
+      const promises = Array.from({ length: 10 }, () =>
         shouldPlayerStartSession(player)
       );
+      const results = await Promise.all(promises);
 
       // Should always return false (no bonuses available)
       assert.ok(results.every((r) => r === false));
@@ -44,10 +54,20 @@ describe('Session Service', () => {
         seed: 'test-rec',
       });
 
+      // Create a session so player is no longer "newly generated"
+      await createSession({
+        playerId: player.id,
+        initialBalance: player.walletBalance,
+        slotVolatility: 'low',
+        simulationHour: BigInt(0),
+        simulationTimestamp: new Date().toISOString()
+      });
+
       // Run many times to check probabilistic behavior
-      const results = Array.from({ length: 100 }, () =>
+      const promises = Array.from({ length: 100 }, () =>
         shouldPlayerStartSession(player)
       );
+      const results = await Promise.all(promises);
 
       const trueCount = results.filter((r) => r === true).length;
       const falseCount = results.filter((r) => r === false).length;
@@ -63,9 +83,19 @@ describe('Session Service', () => {
         seed: 'test-vip',
       });
 
-      const results = Array.from({ length: 100 }, () =>
+      // Create a session so player is no longer "newly generated"
+      await createSession({
+        playerId: player.id,
+        initialBalance: player.walletBalance,
+        slotVolatility: 'high',
+        simulationHour: BigInt(0),
+        simulationTimestamp: new Date().toISOString()
+      });
+
+      const promises = Array.from({ length: 100 }, () =>
         shouldPlayerStartSession(player)
       );
+      const results = await Promise.all(promises);
 
       const trueCount = results.filter((r) => r === true).length;
 
@@ -108,6 +138,8 @@ describe('Session Service', () => {
         playerId: player.id,
         initialBalance: player.walletBalance,
         slotVolatility: 'low',
+        simulationHour: BigInt(0),
+        simulationTimestamp: new Date().toISOString()
       });
 
       assert.ok(session.id);
@@ -126,6 +158,8 @@ describe('Session Service', () => {
         playerId: player.id,
         initialBalance: player.walletBalance,
         slotVolatility: 'high',
+        simulationHour: BigInt(0),
+        simulationTimestamp: new Date().toISOString()
       });
 
       // Query database directly to verify persistence
@@ -146,18 +180,24 @@ describe('Session Service', () => {
         playerId: player.id,
         initialBalance: '1000.00',
         slotVolatility: 'low',
+        simulationHour: BigInt(0),
+        simulationTimestamp: new Date().toISOString()
       });
 
       const mediumSession = await createSession({
         playerId: player.id,
         initialBalance: '1000.00',
         slotVolatility: 'medium',
+        simulationHour: BigInt(0),
+        simulationTimestamp: new Date().toISOString()
       });
 
       const highSession = await createSession({
         playerId: player.id,
         initialBalance: '1000.00',
         slotVolatility: 'high',
+        simulationHour: BigInt(0),
+        simulationTimestamp: new Date().toISOString()
       });
 
       assert.equal(lowSession.slotVolatility, 'low');

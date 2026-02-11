@@ -16,6 +16,7 @@ export type SpinInput = {
   startingBalance: string; // Balance before spin
   roundSeed?: string | null; // Optional per-round seed for RNG
   rng?: Rng; // Optional RNG instance (else uses global or per-round)
+  simulationTimestamp?: string; // Optional simulation timestamp (overrides wall-clock time)
 };
 
 /**
@@ -53,7 +54,7 @@ function parseNumeric(
  * @throws {Error} if inputs are invalid or insufficient balance
  */
 export function spin(input: SpinInput): Round {
-  const { slotName, wager, startingBalance, roundSeed, rng: providedRng } = input;
+  const { slotName, wager, startingBalance, roundSeed, rng: providedRng, simulationTimestamp } = input;
 
   // Step 1: Validate inputs
   const wagerNum = parseNumeric(wager, 'wager', false);
@@ -126,7 +127,7 @@ export function spin(input: SpinInput): Round {
     slotName,
     startedBalance: formatNumeric(balanceNum),
     endedBalance: formatNumeric(endedBalanceNum),
-    timestamp: new Date().toISOString(),
+    timestamp: simulationTimestamp || new Date().toISOString(),
     outcome,
     rng: rngInfo,
   };

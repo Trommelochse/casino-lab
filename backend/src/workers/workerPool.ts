@@ -76,12 +76,16 @@ export class WorkerPool {
    * @param players - All players to simulate
    * @param sessions - Corresponding sessions (same order as players)
    * @param globalSeed - Global RNG seed for determinism
+   * @param simulationHour - Current simulation hour
+   * @param simulationTimestamp - Current simulation timestamp
    * @returns Array of results from all workers
    */
   async executeSimulation(
     players: Player[],
     sessions: Session[],
-    globalSeed: string
+    globalSeed: string,
+    simulationHour: bigint,
+    simulationTimestamp: string
   ): Promise<WorkerResult[]> {
     if (players.length !== sessions.length) {
       throw new Error('Players and sessions arrays must have same length')
@@ -119,6 +123,8 @@ export class WorkerPool {
         players: chunk.players,
         sessions: chunk.sessions,
         globalSeed,
+        simulationHour,
+        simulationTimestamp,
         workerIndex: index
       })
     })

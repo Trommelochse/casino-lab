@@ -1,6 +1,7 @@
 import Fastify, { FastifyServerOptions } from 'fastify';
 import cors from '@fastify/cors';
 import { getCasinoState } from './state/casinoState.js';
+import { getWorldState } from './state/worldState.js';
 import { createPlayer, getAllPlayers } from './services/playerService.js';
 import { isArchetypeName } from './constants/archetypes.js';
 import { simulateHourTick } from './simulation/simulationOrchestrator.js';
@@ -37,6 +38,41 @@ export function buildApp(opts: FastifyServerOptions = {}) {
       return reply.status(200).send({
         casino: casinoState,
         players: players,
+      });
+    } catch (err) {
+      const error = err as Error;
+      app.log.error(error);
+
+      // Distinguish initialization errors (503) from runtime errors (500)
+      const isInitError = error.message.includes('not loaded');
+      const statusCode = isInitError ? 503 : 500;
+      const errorType = isInitError ? 'Service Unavailable' : 'Internal Server Error';
+
+      return reply.status(statusCode).send({
+        error: errorType,
+        message: error.message,
+      });
+    }
+  });
+
+  // World state endpoint
+  app.get('/world', async (_request, reply) => {
+    try {
+      // Get cached world state (fails fast if not loaded)
+      const worldState = getWorldState();
+
+      // Convert BigInt fields to strings for JSON serialization
+      return reply.status(200).send({
+        id: worldState.id,
+        currentHour: worldState.currentHour.toString(),
+        totalSpins: worldState.totalSpins.toString(),
+        masterSeed: worldState.masterSeed,
+        simulationStartedAt: worldState.simulationStartedAt,
+        lastHourCompletedAt: worldState.lastHourCompletedAt,
+        totalHouseRevenue: worldState.totalHouseRevenue,
+        totalSessions: worldState.totalSessions.toString(),
+        createdAt: worldState.createdAt,
+        updatedAt: worldState.updatedAt,
       });
     } catch (err) {
       const error = err as Error;

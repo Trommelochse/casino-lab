@@ -46,9 +46,9 @@ describe('Batch Operations', () => {
       )
 
       await pool.query(
-        `INSERT INTO sessions (id, player_id, initial_balance, slot_volatility, started_at)
-         VALUES ($1, $2, $3, $4, NOW())`,
-        [sessionId, playerId, '100.00', 'medium']
+        `INSERT INTO sessions (id, player_id, initial_balance, slot_volatility, simulation_hour, simulation_timestamp, started_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        [sessionId, playerId, '100.00', 'medium', '0', new Date().toISOString()]
       )
 
       // Create 10 test rounds
@@ -67,7 +67,7 @@ describe('Batch Operations', () => {
       }
 
       // Insert batch
-      await batchInsertGameRounds(rounds)
+      await batchInsertGameRounds(rounds, BigInt(0))
 
       // Verify insertion
       const result = await pool.query(
@@ -92,9 +92,9 @@ describe('Batch Operations', () => {
       )
 
       await pool.query(
-        `INSERT INTO sessions (id, player_id, initial_balance, slot_volatility, started_at)
-         VALUES ($1, $2, $3, $4, NOW())`,
-        [sessionId, playerId, '1000.00', 'high']
+        `INSERT INTO sessions (id, player_id, initial_balance, slot_volatility, simulation_hour, simulation_timestamp, started_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        [sessionId, playerId, '1000.00', 'high', '0', new Date().toISOString()]
       )
 
       // Create 500 test rounds (will be split into 4 batches of 140, 140, 140, 80)
@@ -113,7 +113,7 @@ describe('Batch Operations', () => {
       }
 
       // Insert batch
-      await batchInsertGameRounds(rounds)
+      await batchInsertGameRounds(rounds, BigInt(0))
 
       // Verify insertion
       const result = await pool.query(
@@ -125,7 +125,7 @@ describe('Batch Operations', () => {
 
     it('should handle empty array gracefully', async () => {
       // Should not throw
-      await batchInsertGameRounds([])
+      await batchInsertGameRounds([], BigInt(0))
     })
 
     it('should insert rounds with correct field values', async () => {
@@ -143,9 +143,9 @@ describe('Batch Operations', () => {
       )
 
       await pool.query(
-        `INSERT INTO sessions (id, player_id, initial_balance, slot_volatility, started_at)
-         VALUES ($1, $2, $3, $4, NOW())`,
-        [sessionId, playerId, '100.00', 'low']
+        `INSERT INTO sessions (id, player_id, initial_balance, slot_volatility, simulation_hour, simulation_timestamp, started_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        [sessionId, playerId, '100.00', 'low', '0', new Date().toISOString()]
       )
 
       const roundId = randomUUID()
@@ -162,7 +162,7 @@ describe('Batch Operations', () => {
         }
       ]
 
-      await batchInsertGameRounds(rounds)
+      await batchInsertGameRounds(rounds, BigInt(0))
 
       // Verify field values
       const result = await pool.query(
@@ -321,9 +321,9 @@ describe('Batch Operations', () => {
 
       for (const id of [session1, session2, session3]) {
         await pool.query(
-          `INSERT INTO sessions (id, player_id, initial_balance, slot_volatility, started_at)
-           VALUES ($1, $2, $3, $4, NOW())`,
-          [id, playerId, '100.00', 'medium']
+          `INSERT INTO sessions (id, player_id, initial_balance, slot_volatility, simulation_hour, simulation_timestamp, started_at)
+           VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+          [id, playerId, '100.00', 'medium', '0', new Date().toISOString()]
         )
       }
 
